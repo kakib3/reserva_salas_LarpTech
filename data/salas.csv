@@ -1,0 +1,13 @@
+idSala;nome;capacidade;predio;andar;status;tipoSala
+1;Sala01;30;Anexo1;1;Disponivel;SALA
+2;Sala02;33;Anexo1;1;Disponivel;SALA
+3;Sala03;35;Anexo1;1;Disponivel;SALA
+4;Sala04;29;Anexo1;1;Disponivel;REUNIAO
+5;Sala05;31;Anexo1;1;Disponivel;SALA
+6;Lab01;38;Anexo1;1;Disponivel;LABORATORIO
+7;Lab02;37;Anexo1;1;Manutencao;LABORATORIO
+8;Lab03;37;Anexo2;1;Disponivel;LABORATORIO
+9;Lab04;39;Anexo2;1;Disponivel;LABORATORIO
+10;Lab05;40;Anexo2;1;Indisponivel;LABORATORIO
+11;Aud01;150;Central;2;Disponivel;AUDITORIO
+12;Aud02;150;Central;2;Disponivel;AUDITORIO

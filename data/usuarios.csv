@@ -1,0 +1,9 @@
+idUser;nome;email;telefone;role;senha
+1;Joao;joao@gmail.com;99 99999999;Aluno;1234
+2;Andre;andre@hotmail.com;88 888888888;Aluno;1234
+3;Maria;maria@outlook.com;77 777777777;Aluno;1234
+4;Anderson;anderson@gmail.com;66 666666666;Professor;1234
+5;Allan;allan@gmail.com;55 555555555;Admin;1234
+6;Bacalhau;bacalhau@gmail.com;44 444444444;Professor;1234
+7;Eduardo;eduardo@gmail.com;33 333333333;Aluno;1234
+8;Moises;moises@gmail.com;22 222222222;Professor;1234
