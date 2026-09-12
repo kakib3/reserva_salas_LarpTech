@@ -8,6 +8,6 @@
 
 ## Significado dos status de Sala:
 
-- Disponível: a sala pode ser reservada
-- Indisponível: a sala não pode ser reservada
-- Manutenção: a sala pode ou não ser reservada, quem decide é o administrador
+- Disponivel: a sala pode ser reservada
+- Indisponivel: a sala não pode ser reservada
+- Manutencao: a sala não pode ser reservada
