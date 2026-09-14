@@ -1,5 +1,4 @@
 class Equipamento:
-    def __init__(self, id, nome, status):
+    def __init__(self, id, nome):
         self.id = id
         self.nome = nome
-        self.status = status
