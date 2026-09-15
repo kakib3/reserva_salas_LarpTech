@@ -91,7 +91,27 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     reservas = pd.concat([reservas, nova_linha], ignore_index=True)
     reservas.to_csv(arquivo, sep=";", index=False)
     return reserva_obj
+
+def cancelar_reserva(id_reserva,id_usuario):
+    arquivo = DATA_DIR / "reservas.csv"
+    reservas = pd.read_csv(arquivo, sep=";")
     
+    reserva = reservas[reservas["idReserva"] == id_reserva]
+    
+    if reserva.empty:
+        return False  # Reserva não encontrada
+    
+    if reserva.iloc[0]["idUser"] != id_usuario:
+        return False  # Usuário não autorizado a cancelar esta reserva
+    
+    if reserva.iloc[0]["status"] not in ["Confirmada", "Pendente"]:
+        return False 
+    
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
+    reservas.to_csv(arquivo, sep=";", index=False)
+    return True
+
+#Métodos Utilitários
 def descobre_tipo_sala(id_sala):
     salas = carregar_salas()
     sala = salas[salas["idSala"] == id_sala]

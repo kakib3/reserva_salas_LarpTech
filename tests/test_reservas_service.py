@@ -4,7 +4,7 @@ import shutil
 from datetime import date, time
 
 from app.models.dados import DATA_DIR
-from app.services.reservas_service import criar_reserva
+from app.services.reservas_service import criar_reserva, cancelar_reserva
 
 
 class TestCriarReserva(unittest.TestCase):
@@ -168,6 +168,42 @@ class TestCriarReserva(unittest.TestCase):
         self.assertIsNot(False, reserva)
         self.assertEqual(reserva.status, "Pendente")
 
+class TestCancelarReserva(unittest.TestCase):
 
+    def setUp(self):
+        self.arquivo_reservas = DATA_DIR / "reservas.csv"
+        self.backup_reservas = DATA_DIR / "reservas_backup.csv"
+
+        shutil.copy(self.arquivo_reservas, self.backup_reservas)
+
+    def tearDown(self):
+        shutil.copy(self.backup_reservas, self.arquivo_reservas)
+        self.backup_reservas.unlink()
+
+    def test_cancelar_propria_reserva_confirmada(self):
+        resultado = cancelar_reserva(1, 4)
+
+        self.assertTrue(resultado)
+
+    def test_cancelar_propria_reserva_pendente(self):
+        resultado = cancelar_reserva(8, 7)
+
+        self.assertTrue(resultado)
+
+    def test_cancelar_reserva_de_outro_usuario(self):
+        resultado = cancelar_reserva(1, 7)
+
+        self.assertFalse(resultado)
+
+    def test_cancelar_reserva_ja_cancelada(self):
+        resultado = cancelar_reserva(5, 4)
+
+        self.assertFalse(resultado)
+
+    def test_cancelar_reserva_inexistente(self):
+        resultado = cancelar_reserva(999, 1)
+
+        self.assertFalse(resultado)   
+        
 if __name__ == "__main__":
     unittest.main()
