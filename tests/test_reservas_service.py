@@ -1,10 +1,11 @@
 import unittest
 import shutil
+import pandas as pd
 
 from datetime import date, time
 
 from app.models.dados import DATA_DIR
-from app.services.reservas_service import criar_reserva, cancelar_reserva
+from app.services.reservas_service import criar_reserva, cancelar_reserva, alterar_reserva
 
 
 class TestCriarReserva(unittest.TestCase):
@@ -203,7 +204,110 @@ class TestCancelarReserva(unittest.TestCase):
     def test_cancelar_reserva_inexistente(self):
         resultado = cancelar_reserva(999, 1)
 
-        self.assertFalse(resultado)   
+        self.assertFalse(resultado)
+        
+class TestAlterarReserva(unittest.TestCase):
+
+    def setUp(self):
+        self.arquivo_reservas = DATA_DIR / "reservas.csv"
+        self.backup_reservas = DATA_DIR / "reservas_backup.csv"
+
+        shutil.copy(self.arquivo_reservas, self.backup_reservas)
+
+    def tearDown(self):
+        shutil.copy(self.backup_reservas, self.arquivo_reservas)
+        self.backup_reservas.unlink()
+
+    def test_alterar_com_conflito(self):
+        resultado = alterar_reserva(
+            1,
+            4,
+            3,
+            date(2026, 6, 19),
+            time(19, 0),
+            time(21, 0)
+    )
+
+    def test_alterar_reserva_de_outro_usuario(self):
+        resultado = alterar_reserva(
+            1,
+            7,
+            3,
+            date(2026, 6, 16),
+            time(19, 0),
+            time(21, 0)
+        )
+
+        self.assertFalse(resultado)
+
+    def test_alterar_reserva_cancelada(self):
+        resultado = alterar_reserva(
+            5,
+            4,
+            3,
+            date(2026, 6, 16),
+            time(19, 0),
+            time(21, 0)
+        )
+
+        self.assertFalse(resultado)
+
+    def test_alterar_para_sala_indisponivel(self):
+        resultado = alterar_reserva(
+            1,
+            4,
+            10,
+            date(2026, 6, 16),
+            time(19, 0),
+            time(21, 0)
+        )
+
+        self.assertFalse(resultado)
+
+    def test_alterar_com_conflito(self):
+        resultado = alterar_reserva(
+            1,
+            4,
+            5,
+            date(2026, 6, 22),
+            time(19, 0),
+            time(21, 0)
+        )
+        self.assertFalse(resultado)
+
+    def test_alterar_para_laboratorio_fica_pendente(self):
+        resultado = alterar_reserva(
+            1,
+            4,
+            6,
+            date(2026, 6, 16),
+            time(19, 0),
+            time(21, 0)
+        )
+
+        self.assertTrue(resultado)
+
+        reservas = pd.read_csv(self.arquivo_reservas, sep=";")
+        reserva = reservas[reservas["idReserva"] == 1]
+
+        self.assertEqual(reserva.iloc[0]["status"], "Pendente")
+
+    def test_alterar_para_sala_comum_fica_confirmada(self):
+        resultado = alterar_reserva(
+            8,
+            7,
+            3,
+            date(2026, 6, 16),
+            time(19, 0),
+            time(21, 0)
+        )
+
+        self.assertTrue(resultado)
+
+        reservas = pd.read_csv(self.arquivo_reservas, sep=";")
+        reserva = reservas[reservas["idReserva"] == 8]
+
+        self.assertEqual(reserva.iloc[0]["status"], "Confirmada")   
         
 if __name__ == "__main__":
     unittest.main()

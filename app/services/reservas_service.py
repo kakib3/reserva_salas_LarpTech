@@ -20,7 +20,7 @@ def verificar_sala_disponivel(id_sala):
 
     return sala.iloc[0]["status"] == "Disponivel"
 
-def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim):
+def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
     arquivo = DATA_DIR / "reservas.csv"
     reservas = pd.read_csv(arquivo, sep=";")
     
@@ -45,6 +45,9 @@ def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim):
         & (reservas["status"].isin(["Confirmada", "Pendente"]))
     )
     sobreposicao = (reservas["horaInicio"] < hora_fim) & (reservas["horaFim"] > hora_inicio)
+
+    if id_reserva_ignorar is not None:
+        mesma_sala_e_data &= reservas["idReserva"] != id_reserva_ignorar
 
     return not reservas[mesma_sala_e_data & sobreposicao].empty
 
@@ -108,6 +111,46 @@ def cancelar_reserva(id_reserva,id_usuario):
         return False 
     
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
+    reservas.to_csv(arquivo, sep=";", index=False)
+    return True
+
+def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
+    arquivo = DATA_DIR / "reservas.csv"
+    reservas = pd.read_csv(arquivo, sep=";")
+    
+    reserva = reservas[reservas["idReserva"] == id_reserva]
+    
+    if reserva.empty:
+        return False  # Reserva não encontrada
+    
+    if reserva.iloc[0]["idUser"] != id_usuario:
+        return False  # Usuário não autorizado a alterar esta reserva
+    
+    if reserva.iloc[0]["status"] not in ["Confirmada", "Pendente"]:
+        return False  # Reserva não pode ser alterada
+    
+    if not verificar_sala_disponivel(nova_sala):
+        return False  # Sala indisponível
+    
+    reserva_obj = Reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim, reserva.iloc[0]["status"], None)
+    
+    reserva_obj.validar_horario()
+    reserva_obj.validar_intervalo()
+    reserva_obj.validar_horario_funcionamento()
+    reserva_obj.validar_dia_util()
+    
+    if verificar_conflito_horario(nova_sala, nova_data, novo_inicio, novo_fim, id_reserva_ignorar=id_reserva):
+        return False  # Conflito de horário
+    
+    sala_tipo = descobre_tipo_sala(nova_sala)
+    
+    if(sala_tipo == "LABORATORIO" or sala_tipo == "AUDITORIO"):
+        reserva_obj.status = "Pendente"
+    elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
+        reserva_obj.status = "Confirmada"
+    
+    reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
+    
     reservas.to_csv(arquivo, sep=";", index=False)
     return True
 
