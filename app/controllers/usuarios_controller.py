@@ -1,9 +1,9 @@
-from app.services import usuario_service
+from app.services import usuarios_service
 
 
 def cadastrar_usuario(nome, email, telefone, role, senha):
     try:
-        resultado = usuario_service.criar_usuario(nome, email, telefone, role, senha)
+        resultado = usuarios_service.criar_usuario(nome, email, telefone, role, senha)
     except ValueError as e:
         return False, str(e), None
 
@@ -14,7 +14,7 @@ def cadastrar_usuario(nome, email, telefone, role, senha):
 
 
 def fazer_login(email, senha):
-    resultado = usuario_service.autenticar_usuario(email, senha)
+    resultado = usuarios_service.autenticar_usuario(email, senha)
 
     if resultado is False:
         return False, "Email ou senha inválidos.", None
@@ -24,7 +24,7 @@ def fazer_login(email, senha):
 
 def editar_usuario(id_usuario, nome, email, telefone, role):
     try:
-        resultado = usuario_service.alterar_usuario(id_usuario, nome, email, telefone, role)
+        resultado = usuarios_service.alterar_usuario(id_usuario, nome, email, telefone, role)
     except ValueError as e:
         return False, str(e), None
 
@@ -36,7 +36,7 @@ def editar_usuario(id_usuario, nome, email, telefone, role):
 
 def trocar_senha(id_usuario, senha_atual, nova_senha):
     try:
-        resultado = usuario_service.alterar_senha(id_usuario, senha_atual, nova_senha)
+        resultado = usuarios_service.alterar_senha(id_usuario, senha_atual, nova_senha)
     except ValueError as e:
         return False, str(e), None
 
@@ -47,7 +47,7 @@ def trocar_senha(id_usuario, senha_atual, nova_senha):
 
 
 def desativar_usuario(id_usuario):
-    resultado = usuario_service.desativar_usuario(id_usuario)
+    resultado = usuarios_service.desativar_usuario(id_usuario)
 
     if resultado is False:
         return False, "Usuário não encontrado ou já está inativo.", None
@@ -56,7 +56,7 @@ def desativar_usuario(id_usuario):
 
 
 def obter_usuario(id_usuario):
-    usuario = usuario_service.buscar_usuario_por_id(id_usuario)
+    usuario = usuarios_service.buscar_usuario_por_id(id_usuario)
 
     if usuario is None:
         return False, "Usuário não encontrado.", None
@@ -65,4 +65,4 @@ def obter_usuario(id_usuario):
 
 
 def listar_todos_usuarios():
-    return usuario_service.listar_usuarios()
+    return usuarios_service.listar_usuarios()
