@@ -3,13 +3,10 @@ import re
 class Usuario:
     ROLES_VALIDAS = ["Aluno", "Professor", "Admin"]
     
-    def __init__(self, id, nome, email, telefone, role, senha):
-        self.id = id
-        self.nome = nome
-        self.email = email
-        self.telefone = telefone
-        self.role = role
-        self.senha = senha
+    def __init__(self, id, nome, email, telefone, role, senha, status="Ativo"):   #adicionado status
+        self.id = id; self.nome = nome; self.email = email
+        self.telefone = telefone; self.role = role; self.senha = senha
+        self.status = status
         
     def validar_nome(self, tamanho_minimo=2):
         if not isinstance(self.nome, str) or len(self.nome.strip()) < tamanho_minimo:
