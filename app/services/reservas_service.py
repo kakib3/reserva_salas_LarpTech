@@ -3,6 +3,7 @@ import pandas as pd
 from app.models.dados import DATA_DIR
 from app.models.reserva import Reserva
 from datetime import date
+from app.models.dados import carregar_salas
 
 
 def carregar_salas():
@@ -11,7 +12,7 @@ def carregar_salas():
 
 
 def verificar_sala_disponivel(id_sala):
-    salas = from app.models.dados import carregar_salas
+    salas = carregar_salas()
 
     sala = salas[salas["idSala"] == id_sala]
 
@@ -156,7 +157,7 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
 #Métodos Utilitários
 def descobre_tipo_sala(id_sala):
-    salas = from app.models.dados import carregar_salas
+    salas = carregar_salas()
     sala = salas[salas["idSala"] == id_sala]
     if not sala.empty:
         return sala.iloc[0]["tipoSala"]
