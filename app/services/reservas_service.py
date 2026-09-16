@@ -3,12 +3,7 @@ import pandas as pd
 from app.models.dados import DATA_DIR
 from app.models.reserva import Reserva
 from datetime import date
-
-
-def carregar_salas():
-    arquivo = DATA_DIR / "salas.csv"
-    return pd.read_csv(arquivo, sep=";")
-
+from app.models.dados import carregar_salas
 
 def verificar_sala_disponivel(id_sala):
     salas = carregar_salas()
