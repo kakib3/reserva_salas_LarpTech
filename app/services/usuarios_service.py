@@ -108,4 +108,47 @@ def alterar_usuario(id_usuario, nome, email, telefone, role):
     usuarios.loc[filtro, ["nome", "email", "telefone", "role"]] = [nome, email, telefone, role]
 
     usuarios.to_csv(arquivo, sep=";", index=False)
-    return usuario_obj  
+    return usuario_obj
+
+def alterar_senha(id_usuario, senha_atual, nova_senha):
+    arquivo = DATA_DIR / "usuarios.csv"
+    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    
+    usuario_atual =  usuarios[usuarios["idUser"] == id_usuario]
+    
+    if usuario_atual.empty:
+        return False
+    
+    if usuario_atual.iloc[0]["senha"] != senha_atual:
+        return False
+    
+    usuario_obj = Usuario(
+        id_usuario,
+        usuario_atual.iloc[0]["nome"],
+        usuario_atual.iloc[0]["email"],
+        usuario_atual.iloc[0]["telefone"],
+        usuario_atual.iloc[0]["role"],
+        nova_senha,
+    )
+    usuario_obj.validar_senha()
+
+    usuarios.loc[usuarios["idUser"] == id_usuario, "senha"] = nova_senha
+    usuarios.to_csv(arquivo, sep=";", index=False)
+    return True
+
+def desativar_usuario(id_usuario):
+    arquivo = DATA_DIR / "usuarios.csv"
+    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    
+    filtro = usuarios["idUser"] == id_usuario
+    
+    if not filtro.any():
+        return False
+    
+    if usuarios.loc[filtro, "status"] == "Inativo":
+        return False
+    
+    usuarios.loc[filtro, "status"] = "Inativo"
+    usuarios.to_csv(arquivo, sep=";", index=False)
+    return True
+    
