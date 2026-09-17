@@ -140,7 +140,7 @@ def desativar_usuario(id_usuario):
     if not filtro.any():
         return False
     
-    if usuarios.loc[filtro, "status"] == "Inativo":
+    if usuarios.loc[filtro, "status"].iloc[0] == "Inativo":
         return False
     
     usuarios.loc[filtro, "status"] = "Inativo"
