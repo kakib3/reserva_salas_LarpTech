@@ -14,23 +14,26 @@ def formatar_nome_sala(nome):
 def render():
     st.title("Salas")
 
+    salas = carregar_salas()
+    predios_formatados = sorted(set(salas["predio"].apply(formatar_nome_sala)))
+
     st.subheader("Filtros")
     col1, col2, col3 = st.columns(3)
     with col1:
         somente_disponiveis = st.checkbox("Somente disponíveis")
     with col2:
-        capacidade_minima = st.number_input("Capacidade minima", min_value=0, value=0, step=1)
+        capacidade_minima = st.number_input("Capacidade mínima", min_value=0, value=0, step=1)
     with col3:
-        predio = st.text_input("Predio")
-
-    salas = carregar_salas()
+        predio_escolhido = st.selectbox("Prédio", ["Todos"] + predios_formatados)
 
     if somente_disponiveis:
         salas = salas[salas["status"] == "Disponivel"]
     if capacidade_minima:
         salas = salas[salas["capacidade"] >= capacidade_minima]
-    if predio:
-        salas = salas[salas["predio"].str.contains(predio, case=False, na=False)]
+    if predio_escolhido != "Todos":
+        salas = salas[salas["predio"].apply(formatar_nome_sala) == predio_escolhido]
+
+    st.write(f"{len(salas)} sala(s) encontrada(s)")
 
     if salas.empty:
         st.write("Nenhuma sala encontrada com esses filtros.")
@@ -44,3 +47,6 @@ def render():
                 st.write(formatar_nome_sala(sala["nome"]))
                 st.write(f"Capacidade: {sala['capacidade']}")
                 st.write(f"Status: {sala['status']}")
+                if st.button("Ver detalhes", key=f"detalhes_{sala['idSala']}"):
+                    st.session_state["sala_pre_selecionada_detalhes"] = sala["idSala"]
+                    st.switch_page(st.session_state["pagina_detalhes_sala"])

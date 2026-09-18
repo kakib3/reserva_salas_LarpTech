@@ -43,6 +43,7 @@ else:
     pagina_minhas_reservas = st.Page(minhas_reservas_page, title="Minhas Reservas", icon="📋")
 
     st.session_state["pagina_reservar"] = pagina_reservar
+    st.session_state["pagina_detalhes_sala"] = pagina_detalhes_sala
 
     pages = [
         pagina_inicio,
