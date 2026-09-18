@@ -1,5 +1,7 @@
 import streamlit as st
 from app.models.dados import carregar_salas
+from app.utils.sessao import usuario_logado
+from app.utils.salas_ocultas import ocultar_sala, esta_oculta
 
 
 def formatar_nome_sala(nome):
@@ -14,7 +16,12 @@ def formatar_nome_sala(nome):
 def render():
     st.title("Salas")
 
+    usuario = usuario_logado()
+    eh_admin = usuario is not None and usuario.role == "Admin"
+
     salas = carregar_salas()
+    salas = salas[~salas["idSala"].apply(esta_oculta)]
+
     predios_formatados = sorted(set(salas["predio"].apply(formatar_nome_sala)))
 
     st.subheader("Filtros")
@@ -50,3 +57,7 @@ def render():
                 if st.button("Ver detalhes", key=f"detalhes_{sala['idSala']}"):
                     st.session_state["sala_pre_selecionada_detalhes"] = sala["idSala"]
                     st.switch_page(st.session_state["pagina_detalhes_sala"])
+                if eh_admin:
+                    if st.button("Ocultar", key=f"ocultar_{sala['idSala']}", type="primary"):
+                        ocultar_sala(sala["idSala"])
+                        st.rerun()
