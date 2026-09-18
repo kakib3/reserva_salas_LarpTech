@@ -24,6 +24,7 @@ def render():
 
     with col_reserva:
         st.subheader("Próxima reserva")
+        salas = carregar_salas().set_index("idSala")
         reservas = carregar_reservas()
         minhas = reservas[reservas["idUser"] == usuario.id]
         minhas = minhas[minhas["status"].isin(["Confirmada", "Pendente"])]
@@ -32,13 +33,21 @@ def render():
             st.write("Você não tem nenhuma reserva agendada.")
         else:
             proxima = minhas.sort_values(by=["data", "horaInicio"]).iloc[0]
-            st.write(f"Data: {proxima['data']}")
-            st.write(f"Hora: {proxima['horaInicio']} às {proxima['horaFim']}")
+            if proxima["idSala"] in salas.index:
+                nome_sala = formatar_nome_sala(salas.loc[proxima["idSala"], "nome"])
+            else:
+                nome_sala = proxima["idSala"]
+
+            with st.container(border=True):
+                st.write(nome_sala)
+                st.write(f"Data: {proxima['data']}")
+                st.write(f"Hora: {proxima['horaInicio']} às {proxima['horaFim']}")
+                st.write(f"Status: {proxima['status']}")
 
     with col_disponiveis:
         st.subheader("Salas disponíveis agora")
-        salas = carregar_salas()
-        disponiveis = salas[salas["status"] == "Disponivel"]
+        salas_disponiveis = carregar_salas()
+        disponiveis = salas_disponiveis[salas_disponiveis["status"] == "Disponivel"]
 
         if disponiveis.empty:
             st.write("Nenhuma sala disponível no momento.")
@@ -46,6 +55,7 @@ def render():
             for _, sala in disponiveis.head(5).iterrows():
                 with st.container(border=True):
                     st.write(formatar_nome_sala(sala["nome"]))
+                    st.write(f"Prédio: {formatar_nome_sala(sala['predio'])}")
                     st.write(f"Capacidade: {sala['capacidade']}")
                     st.write(f"Status: {sala['status']}")
                     if st.button("Reservar", key=f"reservar_{sala['idSala']}"):
