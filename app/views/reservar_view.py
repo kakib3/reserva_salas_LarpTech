@@ -35,7 +35,11 @@ def render():
     )
     id_sala = salas.iloc[indice_escolhido]["idSala"]
 
-    data_reserva = st.date_input("Data da reserva", min_value=date.today())
+    data_reserva = st.date_input(
+        "Data da reserva",
+        min_value=date.today(),
+        format="DD/MM/YYYY",
+    )
     hora_inicio = st.time_input("Horário de início", value=time(8, 0))
     hora_fim = st.time_input("Horário de término", value=time(9, 0))
 
