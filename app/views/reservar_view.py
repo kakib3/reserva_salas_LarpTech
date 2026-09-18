@@ -21,17 +21,20 @@ def render():
     salas = carregar_salas()
     nomes_formatados = salas["nome"].apply(formatar_nome_sala).tolist()
 
-    sala_pre_selecionada = st.session_state.pop("sala_pre_selecionada", None)
-    ids_salas = salas["idSala"].tolist()
-    indice_padrao = 0
-    if sala_pre_selecionada is not None and sala_pre_selecionada in ids_salas:
-        indice_padrao = ids_salas.index(sala_pre_selecionada)
+    if "sala_pre_selecionada" in st.session_state:
+        sala_pre_selecionada = st.session_state.pop("sala_pre_selecionada")
+        ids_salas = salas["idSala"].tolist()
+        if sala_pre_selecionada in ids_salas:
+            st.session_state["indice_sala_reservar"] = ids_salas.index(sala_pre_selecionada)
+
+    if "indice_sala_reservar" not in st.session_state:
+        st.session_state["indice_sala_reservar"] = 0
 
     indice_escolhido = st.selectbox(
         "Seleção da Sala",
         range(len(nomes_formatados)),
-        index=indice_padrao,
         format_func=lambda i: nomes_formatados[i],
+        key="indice_sala_reservar",
     )
     id_sala = salas.iloc[indice_escolhido]["idSala"]
 
