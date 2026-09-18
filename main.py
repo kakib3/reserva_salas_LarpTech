@@ -7,6 +7,14 @@ from app.views.reservar_view import render as render_reservar
 from app.views.minhas_reservas_view import render as render_minhas_reservas
 
 
+from app.models.dados import carregar_usuarios
+
+
+if "usuario_logado" not in st.session_state:
+    usuarios = carregar_usuarios()
+    st.session_state["usuario_logado"] = usuarios.iloc[0].to_dict()
+
+
 def home_page():
     render_home()
 
