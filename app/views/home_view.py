@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import date
 from app.models.dados import carregar_salas, carregar_reservas
 from app.utils.sessao import usuario_logado
 
@@ -17,6 +18,7 @@ def render():
 
     st.title("LarpReserve")
     st.write(f"Bem-vindo, {usuario.nome}")
+    st.write(date.today().strftime("%d/%m/%Y"))
 
     col_reserva, col_disponiveis = st.columns(2)
 
@@ -44,6 +46,8 @@ def render():
             for _, sala in disponiveis.head(5).iterrows():
                 with st.container(border=True):
                     st.write(formatar_nome_sala(sala["nome"]))
+                    st.write(f"Capacidade: {sala['capacidade']}")
+                    st.write(f"Status: {sala['status']}")
                     if st.button("Reservar", key=f"reservar_{sala['idSala']}"):
                         st.session_state["sala_pre_selecionada"] = sala["idSala"]
                         st.switch_page(st.session_state["pagina_reservar"])
