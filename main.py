@@ -63,18 +63,22 @@ else:
         section[data-testid="stSidebar"] * {
             color: #ffffff;
         }
+        a[data-testid="stSidebarNavLink"] span[label] {
+            font-size: 1.2rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
     with st.sidebar:
-        st.image("assets/logo_larptech.png", width=120)
+        st.image("assets/logo_larptech_transparente.png", width=120)
         st.markdown(
             f"""
             <div style="background-color:#3a3a3a;color:white;padding:10px;border-radius:8px;">
             {usuario.role} : {usuario.nome}
             </div>
+            <div style="height:16px;"></div>
             """,
             unsafe_allow_html=True,
         )
