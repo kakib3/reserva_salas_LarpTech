@@ -32,6 +32,6 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
         return False, str(e), None
 
     if resultado is False:
-        return False, "Não foi possível alterar: reserva não encontrada, não autorizada, sala indisponível ou conflito de horário.", None
+        return False, "Não foi possível alterar a reserva houve conflito de horário", None
 
     return True, "Reserva alterada com sucesso.", None
