@@ -67,6 +67,7 @@ def render():
                         nova_data = st.date_input(
                             "Nova data",
                             value=converter_data(reserva["data"]),
+                            format="DD/MM/YYYY",
                             key=f"data_{reserva['idReserva']}",
                         )
                         novo_inicio = st.time_input(
