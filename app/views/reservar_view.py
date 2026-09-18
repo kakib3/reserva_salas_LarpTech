@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date, time
 from app.models.dados import carregar_salas
 from app.controllers.reservas_controller import reservar_sala
+from app.utils.sessao import usuario_logado
 
 
 def formatar_nome_sala(nome):
@@ -15,7 +16,7 @@ def formatar_nome_sala(nome):
 
 def render():
     st.title("Reservar Sala")
-    usuario = st.session_state["usuario_logado"]
+    usuario = usuario_logado()
 
     salas = carregar_salas()
     nomes_formatados = salas["nome"].apply(formatar_nome_sala).tolist()
@@ -33,7 +34,7 @@ def render():
 
     if st.button("Confirmar reserva"):
         sucesso, mensagem, reserva = reservar_sala(
-            usuario["idUser"], id_sala, data_reserva, hora_inicio, hora_fim
+            usuario.id, id_sala, data_reserva, hora_inicio, hora_fim
         )
         if sucesso and "pendente" in mensagem.lower():
             st.info(mensagem)

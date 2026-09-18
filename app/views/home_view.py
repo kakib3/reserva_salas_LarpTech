@@ -1,5 +1,6 @@
 import streamlit as st
 from app.models.dados import carregar_salas, carregar_reservas
+from app.utils.sessao import usuario_logado
 
 
 def formatar_nome_sala(nome):
@@ -12,17 +13,17 @@ def formatar_nome_sala(nome):
 
 
 def render():
-    usuario = st.session_state["usuario_logado"]
+    usuario = usuario_logado()
 
     st.title("LarpReserve")
-    st.write(f"Bem-vindo, {usuario['nome']}")
+    st.write(f"Bem-vindo, {usuario.nome}")
 
     col_reserva, col_disponiveis = st.columns(2)
 
     with col_reserva:
         st.subheader("Próxima reserva")
         reservas = carregar_reservas()
-        minhas = reservas[reservas["idUser"] == usuario["idUser"]]
+        minhas = reservas[reservas["idUser"] == usuario.id]
         minhas = minhas[minhas["status"].isin(["Confirmada", "Pendente"])]
 
         if minhas.empty:

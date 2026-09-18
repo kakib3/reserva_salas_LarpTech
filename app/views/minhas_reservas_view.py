@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 from app.models.dados import carregar_reservas, carregar_salas
 from app.controllers.reservas_controller import cancelar_reserva, alterar_reserva
+from app.utils.sessao import usuario_logado
 
 
 def formatar_nome_sala(nome):
@@ -26,10 +27,10 @@ def converter_hora(texto):
 
 def render():
     st.title("Minhas Reservas")
-    usuario = st.session_state["usuario_logado"]
+    usuario = usuario_logado()
 
     reservas = carregar_reservas()
-    minhas_reservas = reservas[reservas["idUser"] == usuario["idUser"]]
+    minhas_reservas = reservas[reservas["idUser"] == usuario.id]
 
     if minhas_reservas.empty:
         st.write("Você ainda não tem nenhuma reserva.")
@@ -54,7 +55,7 @@ def render():
 
                 with col_cancelar:
                     if st.button("Cancelar", key=f"cancelar_{reserva['idReserva']}"):
-                        sucesso, mensagem, _ = cancelar_reserva(reserva["idReserva"], usuario["idUser"])
+                        sucesso, mensagem, _ = cancelar_reserva(reserva["idReserva"], usuario.id)
                         if sucesso:
                             st.success(mensagem)
                             st.rerun()
@@ -80,7 +81,7 @@ def render():
                         )
                         if st.button("Salvar alteração", key=f"salvar_{reserva['idReserva']}"):
                             sucesso, mensagem, _ = alterar_reserva(
-                                reserva["idReserva"], usuario["idUser"], reserva["idSala"], nova_data, novo_inicio, novo_fim
+                                reserva["idReserva"], usuario.id, reserva["idSala"], nova_data, novo_inicio, novo_fim
                             )
                             if sucesso:
                                 st.success(mensagem)
