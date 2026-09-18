@@ -45,4 +45,31 @@ pages = [
 
 navigation = st.navigation(pages)
 
+st.markdown(
+    """
+    <style>
+    section[data-testid="stSidebar"] {
+        background-color: #0d1b3d;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #ffffff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.sidebar:
+    st.image("assets/logo_larptech.png", width=120)
+
+with st.sidebar:
+    usuario = st.session_state["usuario_logado"]
+    st.markdown(
+        f"""
+        <div style="background-color:#3a3a3a;color:white;padding:10px;border-radius:8px;">
+        {usuario['role']} : {usuario['nome']}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 navigation.run()
