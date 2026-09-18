@@ -43,4 +43,6 @@ def render():
             for _, sala in disponiveis.head(5).iterrows():
                 with st.container(border=True):
                     st.write(formatar_nome_sala(sala["nome"]))
-                    st.button("Reservar", key=f"reservar_{sala['idSala']}")
+                    if st.button("Reservar", key=f"reservar_{sala['idSala']}"):
+                        st.session_state["sala_pre_selecionada"] = sala["idSala"]
+                        st.switch_page(st.session_state["pagina_reservar"])

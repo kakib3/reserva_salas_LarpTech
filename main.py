@@ -5,8 +5,6 @@ from app.views.salas_view import render as render_salas
 from app.views.detalhes_sala_view import render as render_detalhes_sala
 from app.views.reservar_view import render as render_reservar
 from app.views.minhas_reservas_view import render as render_minhas_reservas
-
-
 from app.models.dados import carregar_usuarios
 
 
@@ -35,12 +33,20 @@ def minhas_reservas_page():
     render_minhas_reservas()
 
 
+pagina_inicio = st.Page(home_page, title="Início", icon="🏠", default=True)
+pagina_salas = st.Page(salas_page, title="Salas", icon="🏢")
+pagina_detalhes_sala = st.Page(detalhes_sala_page, title="Detalhes da Sala", icon="🔎")
+pagina_reservar = st.Page(reservar_page, title="Reservar", icon="📅")
+pagina_minhas_reservas = st.Page(minhas_reservas_page, title="Minhas Reservas", icon="📋")
+
+st.session_state["pagina_reservar"] = pagina_reservar
+
 pages = [
-    st.Page(home_page, title="Início", icon="🏠", default=True),
-    st.Page(salas_page, title="Salas", icon="🏢"),
-    st.Page(detalhes_sala_page, title="Detalhes da Sala", icon="🔎"),
-    st.Page(reservar_page, title="Reservar", icon="📅"),
-    st.Page(minhas_reservas_page, title="Minhas Reservas", icon="📋"),
+    pagina_inicio,
+    pagina_salas,
+    pagina_detalhes_sala,
+    pagina_reservar,
+    pagina_minhas_reservas,
 ]
 
 navigation = st.navigation(pages)
@@ -72,4 +78,5 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
+
 navigation.run()
