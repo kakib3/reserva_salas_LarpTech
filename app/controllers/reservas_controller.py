@@ -32,6 +32,24 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
         return False, str(e), None
 
     if resultado is False:
-        return False, "Não foi possível alterar: reserva não encontrada, não autorizada, sala indisponível ou conflito de horário.", None
+        return False, "Não foi possível alterar a reserva houve conflito de horário", None
 
     return True, "Reserva alterada com sucesso.", None
+
+    
+def aprovar_reserva(id_reserva):
+    resultado = reservas_service.aprovar_reserva(id_reserva)
+
+    if resultado is False:
+        return False, "Não foi possível aprovar: reserva não encontrada ou não está pendente.", None
+
+    return True, "Reserva aprovada com sucesso.", None
+
+
+def negar_reserva(id_reserva):
+    resultado = reservas_service.negar_reserva(id_reserva)
+
+    if resultado is False:
+        return False, "Não foi possível negar: reserva não encontrada ou não está pendente.", None
+
+    return True, "Reserva negada com sucesso.", None

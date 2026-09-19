@@ -156,3 +156,36 @@ def descobre_tipo_sala(id_sala):
     if not sala.empty:
         return sala.iloc[0]["tipoSala"]
     return None
+
+    
+def aprovar_reserva(id_reserva):
+    arquivo = DATA_DIR / "reservas.csv"
+    reservas = pd.read_csv(arquivo, sep=";")
+
+    reserva = reservas[reservas["idReserva"] == id_reserva]
+
+    if reserva.empty:
+        return False
+
+    if reserva.iloc[0]["status"] != "Pendente":
+        return False
+
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Confirmada"
+    reservas.to_csv(arquivo, sep=";", index=False)
+    return True
+
+def negar_reserva(id_reserva):
+    arquivo = DATA_DIR / "reservas.csv"
+    reservas = pd.read_csv(arquivo, sep=";")
+
+    reserva = reservas[reservas["idReserva"] == id_reserva]
+
+    if reserva.empty:
+        return False
+
+    if reserva.iloc[0]["status"] != "Pendente":
+        return False
+
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
+    reservas.to_csv(arquivo, sep=";", index=False)
+    return True
