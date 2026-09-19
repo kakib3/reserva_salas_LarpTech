@@ -2,17 +2,15 @@ import pandas as pd
 
 from app.models.dados import DATA_DIR
 from app.models.usuario import Usuario
+from app.models.dados import carregar_usuarios
 
 
 def listar_usuarios():
-    arquivo = DATA_DIR / "usuarios.csv"
-    return pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    return carregar_usuarios()
 
 
 def buscar_usuario_por_id(id_usuario):
-    arquivo = DATA_DIR / "usuarios.csv"
-
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    usuarios = carregar_usuarios()
     usuario = usuarios[usuarios["idUser"] == id_usuario]
 
     if usuario.empty:
@@ -23,9 +21,7 @@ def buscar_usuario_por_id(id_usuario):
     return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])  # <-- + usuario["status"]
 
 def buscar_usuario_por_email(email):
-    arquivo = DATA_DIR / "usuarios.csv"
-
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    usuarios = carregar_usuarios()
     usuario = usuarios[usuarios["email"] == email]
 
     if usuario.empty:
@@ -37,8 +33,7 @@ def buscar_usuario_por_email(email):
 
 
 def verificar_email_disponivel(email, id_usuario_ignorar=None):
-    arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    usuarios = carregar_usuarios()
 
     mesmo_email = usuarios["email"] == email
 
@@ -62,7 +57,7 @@ def criar_usuario(nome, email, telefone, role, senha):
     if not verificar_email_disponivel(email):
         return False
 
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    usuarios = carregar_usuarios()
     novo_id = 1 if usuarios.empty else int(usuarios["idUser"].max()) + 1
 
     novo_usuario = pd.DataFrame([{"idUser": novo_id, "nome": nome, "email": email, "telefone": telefone, "role": role, "senha": senha, "status": "Ativo"}])  # <-- + "status": "Ativo"
@@ -89,7 +84,7 @@ def autenticar_usuario(email, senha):
 
 def alterar_usuario(id_usuario, nome, email, telefone, role):
     arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str} )
+    usuarios = carregar_usuarios()
     
     usuario_atual = usuarios[usuarios["idUser"] == id_usuario]
     
@@ -114,7 +109,7 @@ def alterar_usuario(id_usuario, nome, email, telefone, role):
 
 def alterar_senha(id_usuario, senha_atual, nova_senha):
     arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    usuarios = carregar_usuarios()
     
     usuario_atual =  usuarios[usuarios["idUser"] == id_usuario]
     
@@ -133,7 +128,7 @@ def alterar_senha(id_usuario, senha_atual, nova_senha):
 
 def desativar_usuario(id_usuario):
     arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
+    usuarios = carregar_usuarios()
     
     filtro = usuarios["idUser"] == id_usuario
     
@@ -146,4 +141,3 @@ def desativar_usuario(id_usuario):
     usuarios.loc[filtro, "status"] = "Inativo"
     usuarios.to_csv(arquivo, sep=";", index=False)
     return True
-    
