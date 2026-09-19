@@ -1,115 +1,144 @@
-# Reserva de Salas - LarpTech
+# Aplicação para Reserva de Salas
 
-Aplicação web para reserva de salas e laboratórios, desenvolvida em **Python** utilizando **Streamlit**.
+Aplicação web para consulta e reserva de salas e laboratórios, desenvolvida em **Python** utilizando o framework **Streamlit**.
 
-## Pré-requisitos
+##  Sobre o projeto
+
+O sistema tem como objetivo facilitar a consulta de salas disponíveis e o gerenciamento de reservas de ambientes acadêmicos.
+
+O projeto está sendo desenvolvido de forma modular, separando a interface, os serviços de lógica e os dados da aplicação.
+
+A camada `services/` concentra as **regras de negócio e validações**, enquanto os `controllers/` fazem a **ponte entre a view e os services**.
+
+##  Tecnologias utilizadas
+
+- Python
+- Streamlit
+- Pandas
+- Git
+- GitHub
+
+##  Estrutura do projeto
+
+```text
+├── app/
+│   ├── main.py
+│   ├── pages/
+│   │   ├── 1_Home.py
+│   │   ├── 2_Salas.py
+│   │   ├── 3_Detalhes_Sala.py
+│   │   ├── 4_Reservar.py
+│   │   └── 5_Minhas_Reservas.py
+│   ├── controllers/
+│   ├── services/
+│   └── utils/
+│
+├── data/
+│   ├── usuarios.csv
+│   ├── salas.csv
+│   ├── equipamentos.csv
+│   ├── sala_equipamento.csv
+│   └── reservas.csv
+│
+├── tests/
+├── docs/
+├── assets/
+├── requirements.txt
+└── README.md
+
+## Como rodar o projeto
+
+### Pré-requisitos
 
 Antes de executar o projeto, é necessário ter instalado:
 
 - Python 3
 - Git
-- pip
 
 Para verificar se o Python está instalado:
 
-```bash
+```cmd
 python --version
 ```
 
-## Como executar o projeto
+Para verificar se o Git está instalado:
 
-### 1. Clone o repositório
-
-```bash
-git clone URL_DO_REPOSITORIO
+```cmd
+git --version
 ```
 
-### 2. Entre na pasta do projeto
+### 1. Clonar o repositório
 
-```bash
-cd reserva_salas_LarpTech
+Abra o terminal e clone o repositório:
+
+```cmd
+git clone <URL_DO_REPOSITORIO>
 ```
 
-### 3. Crie um ambiente virtual
+Depois, entre na pasta do projeto:
 
-```bash
+```cmd
+cd <PASTA_DO_PROJETO>
+```
+
+### 2. Criar o ambiente virtual
+
+Dentro da pasta do projeto, execute:
+
+```cmd
 python -m venv .venv
 ```
 
-### 4. Ative o ambiente virtual
+### 3. Ativar o ambiente virtual
 
-No Windows (CMD):
+No Windows utilizando o CMD:
 
-```bash
-.venv\Scripts\activate
+```cmd
+.venv\Scripts\activate.bat
 ```
 
-No Linux/macOS:
+Após a ativação, `(.venv)` deverá aparecer no início da linha do terminal.
 
-```bash
-source .venv/bin/activate
+### 4. Instalar as dependências
+
+Com o ambiente virtual ativado, execute:
+
+```cmd
+pip install -r requirements.txt
 ```
 
-Quando o ambiente estiver ativado, normalmente aparecerá `(.venv)` no início da linha do terminal.
+### 5. Executar a aplicação
 
-### 5. Instale as dependências
+Execute:
 
-```bash
-python -m pip install -r requirements.txt
+```cmd
+streamlit run app\main.py
 ```
 
-### 6. Execute a aplicação
-
-```bash
-python -m streamlit run main.py
-```
-
-O Streamlit iniciará um servidor local. A aplicação normalmente estará disponível em:
+O Streamlit iniciará a aplicação. Normalmente, ela ficará disponível em:
 
 ```text
 http://localhost:8501
 ```
 
-## Estrutura do projeto
+Caso o navegador não abra automaticamente, acesse esse endereço manualmente.
 
-```text
-reserva_salas_LarpTech/
-│
-├── app/
-│   ├── views/
-│   ├── controllers/
-│   ├── models/
-│   ├── components/
-│   └── utils/
-│
-├── data/
-├── docs/
-├── assets/
-│
-├── main.py
-├── requirements.txt
-└── README.md
-```
+### 6. Encerrar a aplicação
 
-O projeto utiliza uma organização baseada na arquitetura **MVC (Model-View-Controller)**:
-
-- **Views:** interface e renderização das páginas com Streamlit.
-- **Controllers:** intermediam as ações entre as Views e os Models.
-- **Models:** representam as entidades, regras de negócio e acesso aos dados.
-- **Components:** componentes reutilizáveis da interface.
-- **Data:** arquivos CSV utilizados como dados simulados.
-- **main.py:** ponto de entrada e responsável pela navegação da aplicação.
-
-## Encerrando a aplicação
-
-Para interromper o servidor do Streamlit, pressione:
+Para parar o servidor do Streamlit, volte ao terminal e pressione:
 
 ```text
 Ctrl + C
 ```
 
-Para sair do ambiente virtual:
+### Próximas execuções
 
-```bash
-deactivate
+Depois da primeira configuração, não é necessário criar novamente o ambiente virtual nem reinstalar as dependências.
+
+Basta ativar o ambiente virtual e iniciar o Streamlit:
+
+```cmd
+.venv\Scripts\activate.bat
+streamlit run app\main.py
 ```
+
