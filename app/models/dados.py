@@ -13,18 +13,9 @@ def carregar_salas():
     arquivo = DATA_DIR / "salas.csv"
     return pd.read_csv(arquivo, sep=";")
 
-def carregar_equipamentos():
-    arquivo = DATA_DIR / "equipamentos.csv"
-    return pd.read_csv(arquivo, sep=";")
-
 def carregar_reservas():
     arquivo = DATA_DIR / "reservas.csv"
     return pd.read_csv(arquivo, sep=";")
-
-def obter_equipamentos_da_sala(id_sala):
-    arquivo = DATA_DIR / "sala_equipamento.csv"
-    sala_equipamento = pd.read_csv(arquivo, sep=";")    
-    return sala_equipamento[sala_equipamento["idSala"] == id_sala]
 
 def obter_reservas_da_sala(id_sala, data = None):
     arquivo = DATA_DIR / "reservas.csv"
