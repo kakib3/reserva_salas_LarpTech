@@ -97,7 +97,6 @@ O projeto utiliza uma organização baseada na arquitetura **MVC (Model-View-Con
 - **Views:** interface e renderização das páginas com Streamlit.
 - **Controllers:** intermediam as ações entre as Views e os Models.
 - **Models:** representam as entidades, regras de negócio e acesso aos dados.
-- **Components:** componentes reutilizáveis da interface.
 - **Data:** arquivos CSV utilizados como dados simulados.
 - **Services:** concentra as regras de negócio e validações.
 - **main.py:** ponto de entrada e responsável pela navegação da aplicação.
