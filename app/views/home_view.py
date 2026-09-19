@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date
+from datetime import date, datetime
 from app.models.dados import carregar_salas, carregar_reservas, carregar_usuarios
 from app.controllers.reservas_controller import aprovar_reserva, negar_reserva
 from app.utils.sessao import usuario_logado
@@ -15,12 +15,17 @@ def formatar_nome_sala(nome):
     return "".join(letras)
 
 
+def converter_data(texto):
+    return datetime.strptime(str(texto), "%d/%m/%Y").date()
+
+
 def render():
     usuario = usuario_logado()
 
     st.title("LarpReserve")
     st.write(f"Bem-vindo, {usuario.nome}")
-    st.write(date.today().strftime("%d/%m/%Y"))
+    hoje = date.today()
+    st.write(hoje.strftime("%d/%m/%Y"))
 
     col_reserva, col_disponiveis = st.columns(2)
 
@@ -30,11 +35,14 @@ def render():
         reservas = carregar_reservas()
         minhas = reservas[reservas["idUser"] == usuario.id]
         minhas = minhas[minhas["status"].isin(["Confirmada", "Pendente"])]
+        minhas = minhas.copy()
+        minhas["data_convertida"] = minhas["data"].apply(converter_data)
+        minhas = minhas[minhas["data_convertida"] >= hoje]
 
         if minhas.empty:
             st.write("Você não tem nenhuma reserva agendada.")
         else:
-            proxima = minhas.sort_values(by=["data", "horaInicio"]).iloc[0]
+            proxima = minhas.sort_values(by=["data_convertida", "horaInicio"]).iloc[0]
             if proxima["idSala"] in salas.index:
                 nome_sala = formatar_nome_sala(salas.loc[proxima["idSala"], "nome"])
             else:
