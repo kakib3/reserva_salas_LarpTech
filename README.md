@@ -6,9 +6,9 @@ Aplicação web para consulta e reserva de salas e laboratórios, desenvolvida e
 
 O sistema tem como objetivo facilitar a consulta de salas disponíveis e o gerenciamento de reservas de ambientes acadêmicos.
 
-O projeto está sendo desenvolvido de forma modular, separando a interface, os serviços de lógica e os dados da aplicação.
+O projeto está sendo desenvolvido de forma modular, separando a interface, os controladores, os serviços de lógica, os modelos e os dados da aplicação.
 
-A camada `services/` concentra as **regras de negócio e validações**, enquanto os `controllers/` fazem a **ponte entre a view e os services**.
+Na arquitetura do projeto, `services` concentra as regras de negócio e as validações, enquanto `controllers` faz a ponte entre a interface (`view`) e os serviços.
 
 ##  Tecnologias utilizadas
 
@@ -21,30 +21,33 @@ A camada `services/` concentra as **regras de negócio e validações**, enquant
 ##  Estrutura do projeto
 
 ```text
+reserva_salas_LarpTech/
 ├── app/
-│   ├── main.py
-│   ├── pages/
-│   │   ├── 1_Home.py
-│   │   ├── 2_Salas.py
-│   │   ├── 3_Detalhes_Sala.py
-│   │   ├── 4_Reservar.py
-│   │   └── 5_Minhas_Reservas.py
-│   ├── controllers/
+│   ├── views/
+│   │   ├── detalhes_sala_view.py
+│   │   ├── home_view.py
+│   │   ├── login_view.py
+│   │   ├── minhas_reservas_view.py
+│   │   ├── reservar_view.py
+│   │   └── salas_view.py
+│   ├── controllers/      
 │   ├── services/
+│   ├── models/                    
 │   └── utils/
-│
-├── data/
-│   ├── usuarios.csv
-│   ├── salas.csv
-│   ├── equipamentos.csv
-│   ├── sala_equipamento.csv
-│   └── reservas.csv
-│
 ├── tests/
+├── data/
+│   ├── equipamentos.csv
+│   ├── reservas.csv
+│   ├── sala_equipamento.csv
+│   ├── salas.csv
+│   └── usuarios.csv
 ├── docs/
 ├── assets/
+├── .gitignore
 ├── requirements.txt
+├── main.py
 └── README.md
+```
 
 ## Como rodar o projeto
 
@@ -112,7 +115,7 @@ pip install -r requirements.txt
 Execute:
 
 ```cmd
-streamlit run app\main.py
+streamlit run main.py
 ```
 
 O Streamlit iniciará a aplicação. Normalmente, ela ficará disponível em:
@@ -139,6 +142,6 @@ Basta ativar o ambiente virtual e iniciar o Streamlit:
 
 ```cmd
 .venv\Scripts\activate.bat
-streamlit run app\main.py
+streamlit run main.py
 ```
 
