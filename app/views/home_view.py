@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date
-from app.models.dados import carregar_salas, carregar_reservas
+from app.models.dados import carregar_salas, carregar_reservas, carregar_usuarios
+from app.controllers.reservas_controller import aprovar_reserva, negar_reserva
 from app.utils.sessao import usuario_logado
 from app.utils.salas_ocultas import esta_oculta
 
@@ -44,6 +45,50 @@ def render():
                 st.write(f"Data: {proxima['data']}")
                 st.write(f"Hora: {proxima['horaInicio']} às {proxima['horaFim']}")
                 st.write(f"Status: {proxima['status']}")
+
+        if usuario.role == "Admin":
+            st.subheader("Pendências")
+            todas_reservas = carregar_reservas()
+            pendentes = todas_reservas[todas_reservas["status"] == "Pendente"]
+
+            if pendentes.empty:
+                st.write("Nenhuma pendência no momento.")
+            else:
+                usuarios = carregar_usuarios().set_index("idUser")
+                for _, pendencia in pendentes.iterrows():
+                    if pendencia["idSala"] in salas.index:
+                        nome_sala_pendencia = formatar_nome_sala(salas.loc[pendencia["idSala"], "nome"])
+                    else:
+                        nome_sala_pendencia = pendencia["idSala"]
+
+                    if pendencia["idUser"] in usuarios.index:
+                        solicitante = usuarios.loc[pendencia["idUser"]]
+                        descricao_solicitante = f"{solicitante['role']} : {solicitante['nome']}"
+                    else:
+                        descricao_solicitante = "Usuário desconhecido"
+
+                    with st.container(border=True):
+                        st.write(f"{nome_sala_pendencia} - {descricao_solicitante}")
+                        st.write(f"Data: {pendencia['data']}")
+                        st.write(f"Hora: {pendencia['horaInicio']} às {pendencia['horaFim']}")
+
+                        col_aprovar, col_negar = st.columns(2)
+                        with col_aprovar:
+                            if st.button("Reservar", key=f"aprovar_{pendencia['idReserva']}"):
+                                sucesso, mensagem, _ = aprovar_reserva(pendencia["idReserva"])
+                                if sucesso:
+                                    st.success(mensagem)
+                                    st.rerun()
+                                else:
+                                    st.error(mensagem)
+                        with col_negar:
+                            if st.button("Cancelar", key=f"negar_{pendencia['idReserva']}"):
+                                sucesso, mensagem, _ = negar_reserva(pendencia["idReserva"])
+                                if sucesso:
+                                    st.success(mensagem)
+                                    st.rerun()
+                                else:
+                                    st.error(mensagem)
 
     with col_disponiveis:
         st.subheader("Salas disponíveis agora")
