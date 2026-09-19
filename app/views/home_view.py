@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date
 from app.models.dados import carregar_salas, carregar_reservas
 from app.utils.sessao import usuario_logado
+from app.utils.salas_ocultas import esta_oculta
 
 
 def formatar_nome_sala(nome):
@@ -47,6 +48,7 @@ def render():
     with col_disponiveis:
         st.subheader("Salas disponíveis agora")
         salas_disponiveis = carregar_salas()
+        salas_disponiveis = salas_disponiveis[~salas_disponiveis["idSala"].apply(esta_oculta)]
         disponiveis = salas_disponiveis[salas_disponiveis["status"] == "Disponivel"]
 
         if disponiveis.empty:

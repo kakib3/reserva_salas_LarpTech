@@ -1,5 +1,6 @@
 import streamlit as st
 from app.models.dados import carregar_salas, obter_reservas_da_sala, carregar_usuarios
+from app.utils.salas_ocultas import esta_oculta
 
 
 def formatar_nome_sala(nome):
@@ -15,6 +16,7 @@ def render():
     st.title("Detalhes da Sala")
 
     salas = carregar_salas()
+    salas = salas[~salas["idSala"].apply(esta_oculta)]
     nomes_formatados = salas["nome"].apply(formatar_nome_sala).tolist()
 
     sala_pre_selecionada = st.session_state.pop("sala_pre_selecionada_detalhes", None)

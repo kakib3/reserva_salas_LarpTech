@@ -3,6 +3,7 @@ from datetime import date, time
 from app.models.dados import carregar_salas
 from app.controllers.reservas_controller import reservar_sala
 from app.utils.sessao import usuario_logado
+from app.utils.salas_ocultas import esta_oculta
 
 
 def formatar_nome_sala(nome):
@@ -19,6 +20,7 @@ def render():
     usuario = usuario_logado()
 
     salas = carregar_salas()
+    salas = salas[~salas["idSala"].apply(esta_oculta)]
     nomes_formatados = salas["nome"].apply(formatar_nome_sala).tolist()
 
     if "sala_pre_selecionada" in st.session_state:
