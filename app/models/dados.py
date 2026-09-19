@@ -7,7 +7,7 @@ DATA_DIR = BASE_DIR / "data"
 
 def carregar_usuarios():
     arquivo = DATA_DIR / "usuarios.csv"
-    return pd.read_csv(arquivo, sep=";")
+    return pd.read_csv(arquivo, sep=";", dtype={"senha": str, "telefone": str})
 
 def carregar_salas():
     arquivo = DATA_DIR / "salas.csv"

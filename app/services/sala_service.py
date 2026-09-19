@@ -89,4 +89,3 @@ def alterar_status_sala(id_sala, novo_status):
     salas.loc[filtro, "status"] = novo_status
     salas.to_csv(arquivo, sep=";", index=False)
     return True
-

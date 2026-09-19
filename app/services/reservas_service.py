@@ -4,6 +4,7 @@ from app.models.dados import DATA_DIR
 from app.models.reserva import Reserva
 from datetime import date
 from app.models.dados import carregar_salas
+from app.models.dados import carregar_reservas
 
 def verificar_sala_disponivel(id_sala):
     salas = carregar_salas()
@@ -16,8 +17,7 @@ def verificar_sala_disponivel(id_sala):
     return sala.iloc[0]["status"] == "Disponivel"
 
 def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
-    arquivo = DATA_DIR / "reservas.csv"
-    reservas = pd.read_csv(arquivo, sep=";")
+    reservas = carregar_reservas()
     
     reservas["data"] = pd.to_datetime(
         reservas["data"],
@@ -69,7 +69,7 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
         reserva_obj.status = "Confirmada"
         
-    reservas = pd.read_csv(arquivo, sep=";")
+    reservas = carregar_reservas()
     novo_id = reservas["idReserva"].max() + 1 if not reservas.empty else 1
     reserva_obj.criado_em = date.today()
     reserva_obj.id = novo_id
@@ -92,7 +92,7 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
 
 def cancelar_reserva(id_reserva,id_usuario):
     arquivo = DATA_DIR / "reservas.csv"
-    reservas = pd.read_csv(arquivo, sep=";")
+    reservas = carregar_reservas()
     
     reserva = reservas[reservas["idReserva"] == id_reserva]
     
@@ -111,7 +111,7 @@ def cancelar_reserva(id_reserva,id_usuario):
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
     arquivo = DATA_DIR / "reservas.csv"
-    reservas = pd.read_csv(arquivo, sep=";")
+    reservas = carregar_reservas()
     
     reserva = reservas[reservas["idReserva"] == id_reserva]
     
@@ -160,7 +160,7 @@ def descobre_tipo_sala(id_sala):
     
 def aprovar_reserva(id_reserva):
     arquivo = DATA_DIR / "reservas.csv"
-    reservas = pd.read_csv(arquivo, sep=";")
+    reservas = carregar_reservas()
 
     reserva = reservas[reservas["idReserva"] == id_reserva]
 
@@ -176,7 +176,7 @@ def aprovar_reserva(id_reserva):
 
 def negar_reserva(id_reserva):
     arquivo = DATA_DIR / "reservas.csv"
-    reservas = pd.read_csv(arquivo, sep=";")
+    reservas = carregar_reservas()
 
     reserva = reservas[reservas["idReserva"] == id_reserva]
 
