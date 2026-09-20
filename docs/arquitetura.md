@@ -1,6 +1,6 @@
-# 5. Arquitetura Inicial
+# Arquitetura Inicial
 
-## 5.1 Estrutura de pastas
+## 1. Estrutura de pastas
 
 **reserva_salas_LarpTech/**
 *   **app/**
@@ -15,7 +15,7 @@
 *   **assets/**: logos e imagens
 *   `main.py`, `requirements.txt`, `README.md` e `.gitignore`
 
-## 5.2 Arquitetura em camadas (MVC)
+## 2. Arquitetura em camadas (MVC)
 
 O projeto segue o padrão MVC, estendido com uma camada de Service (MVCS). A figura abaixo mostra como as camadas se relacionam.
 
@@ -28,7 +28,7 @@ Responsabilidades de cada camada:
 *   **models**: trazem as entidades (Usuario, Sala e Reserva), com as validações de cada uma, e o `dados.py`, que faz a leitura dos CSV.
 *   **data**: guarda os arquivos CSV, que funcionam como base de dados no N1.
 
-## 5.3 Fluxo principal do usuário
+## 3. Fluxo principal do usuário
 
 *   **Login**: o usuário informa e-mail e senha. Se estiverem corretos e o usuário estiver ativo, ele entra no sistema. Caso contrário, aparece uma mensagem de erro.
 *   **Home**: mostra a mensagem de boas-vindas, a próxima reserva do usuário e até cinco salas disponíveis, cada uma com um botão para reservar. O Admin também vê a área de Pendências, onde pode aprovar ou negar as reservas pendentes.
@@ -38,7 +38,7 @@ Responsabilidades de cada camada:
 *   **Minhas Reservas**: lista as reservas do usuário e permite alterar a data e os horários ou cancelar as que estão confirmadas ou pendentes.
 *   **Sair**: o botão fica na barra lateral e encerra a sessão.
 
-## 5.4 Gerenciamento de estado
+## 4. Gerenciamento de estado
 
 O estado da aplicação fica guardado no `st.session_state`. O login é tratado pelo arquivo `utils/sessao.py`. Os itens guardados na sessão são:
 
@@ -50,6 +50,6 @@ O estado da aplicação fica guardado no `st.session_state`. O login é tratado 
 
 As mensagens de sucesso e de erro são exibidas na hora, e os filtros da tela de salas não ficam guardados na sessão.
 
-## 5.5 Estratégia de dados simulados
+## 5. Estratégia de dados simulados
 
 Todos os dados ficam em arquivos CSV na pasta *data/*. A leitura é feita pelo `dados.py`, com a biblioteca pandas. Quando uma reserva, usuário ou sala é criado ou alterado, o *service* atualiza a tabela em memória e grava o resultado de volta no CSV. Os detalhes de cada arquivo estão na seção 6.
