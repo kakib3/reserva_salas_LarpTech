@@ -15,7 +15,7 @@ As regras abaixo definem como o sistema deve se comportar nas reservas, nos stat
 9. O usuário só pode cancelar reservas próprias que estejam com status Confirmada ou Pendente.
 10. O usuário só pode alterar reservas próprias, e apenas enquanto o status for Confirmada ou Pendente.
 11. Reservas de sala comum e de sala de reunião são criadas com status Confirmada automaticamente. Reservas de laboratório e de auditório entram como Pendente até que um usuário com perfil Admin as confirme.
-12. Ao alterar uma reserva (data, horário ou sala), o sistema valida o conflito de horário novamente, como se fosse uma reserva nova.
+12. Ao alterar uma reserva (data e horário), o sistema valida o conflito de horário novamente, como se fosse uma reserva nova.
 13. Se a alteração envolver uma sala do tipo laboratório ou auditório, o status da reserva volta para Pendente, mesmo que estivesse Confirmada.
 14. Se a alteração envolver uma sala comum ou de reunião, o status permanece ou volta para Confirmada. Como o status é recalculado a cada alteração, uma reserva de laboratório ou auditório também volta para Pendente quando só a data ou o horário mudam.
 
