@@ -5,8 +5,9 @@ from app.models.usuario import Usuario
 from app.models.dados import carregar_usuarios
 
 
-def listar_usuarios():
-    return carregar_usuarios()
+def listar_usuarios(id_solicitante):
+    exigir_admin(id_solicitante)
+    return carregar_usuarios().drop(columns=["senha"])
 
 
 def buscar_usuario_por_id(id_usuario):
@@ -43,7 +44,10 @@ def verificar_email_disponivel(email, id_usuario_ignorar=None):
     return usuarios[mesmo_email].empty
 
 
-def criar_usuario(nome, email, telefone, role, senha):
+def criar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
+    
+    if role == "Admin":
+        exigir_admin(id_solicitante)
     arquivo = DATA_DIR / "usuarios.csv"
 
     usuario_obj = Usuario(None, nome, email, telefone, role, senha)
@@ -82,7 +86,12 @@ def autenticar_usuario(email, senha):
 
     return usuario
 
-def alterar_usuario(id_usuario, nome, email, telefone, role):
+def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
+    eh_admin = checar_admin(id_solicitante)
+    
+    if id_solicitante != id_usuario and not eh_admin:
+        raise PermissionError("Você só pode editar os seus próprios dados.")
+
     arquivo = DATA_DIR / "usuarios.csv"
     usuarios = carregar_usuarios()
     
@@ -90,6 +99,14 @@ def alterar_usuario(id_usuario, nome, email, telefone, role):
     
     if usuario_atual.empty:
         return False
+    
+    role_atual = usuario_atual.iloc[0]["role"]
+    if role != role_atual:
+        if not eh_admin:
+            raise PermissionError("Apenas administradores podem alterar o perfil.")
+        if role_atual == "Admin" and eh_ultimo_admin(id_usuario):
+            raise ValueError("Não é possível rebaixar o último administrador.")
+
     
     usuario_obj = Usuario(id_usuario, nome, email, telefone, role, usuario_atual.iloc[0]["senha"], usuario_atual.iloc[0]["status"])
 
@@ -107,7 +124,10 @@ def alterar_usuario(id_usuario, nome, email, telefone, role):
     usuarios.to_csv(arquivo, sep=";", index=False)
     return usuario_obj
 
-def alterar_senha(id_usuario, senha_atual, nova_senha):
+def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
+    if id_solicitante != id_usuario:
+        raise PermissionError("Você só pode alterar a sua própria senha.")
+
     arquivo = DATA_DIR / "usuarios.csv"
     usuarios = carregar_usuarios()
     
@@ -126,7 +146,12 @@ def alterar_senha(id_usuario, senha_atual, nova_senha):
     usuarios.to_csv(arquivo, sep=";", index=False)
     return True
 
-def desativar_usuario(id_usuario):
+def desativar_usuario(id_solicitante, id_usuario):
+    exigir_admin(id_solicitante)
+    
+    if id_solicitante == id_usuario:
+        raise ValueError("Administradores não podem desativar a si mesmos.")
+    
     arquivo = DATA_DIR / "usuarios.csv"
     usuarios = carregar_usuarios()
     
@@ -141,3 +166,27 @@ def desativar_usuario(id_usuario):
     usuarios.loc[filtro, "status"] = "Inativo"
     usuarios.to_csv(arquivo, sep=";", index=False)
     return True
+
+def checar_admin(id_usuario):
+    usuario = buscar_usuario_por_id(id_usuario)
+    return usuario is not None and usuario.role == "Admin" and usuario.status != "Inativo"
+
+def exigir_admin(id_solicitante):
+    if id_solicitante is None or not checar_admin(id_solicitante):
+        raise PermissionError("Ação não permitida. Apenas administradores podem realizar esta operação.")
+    
+def eh_ultimo_admin(id_usuario):
+    usuarios = carregar_usuarios()
+    admins = usuarios[(usuarios["role"] == "Admin") & (usuarios["status"] != "Inativo")]
+    return len(admins) == 1 and admins.iloc[0]["idUser"] == id_usuario
+
+def obter_usuario(id_solicitante, id_usuario):
+    if id_solicitante != id_usuario and not checar_admin(id_solicitante):
+        raise PermissionError("Você não tem permissão para ver este usuário.")
+
+    return buscar_usuario_por_id(id_usuario)
+
+
+def checar_usuario_ativo(id_usuario):
+    usuario = buscar_usuario_por_id(id_usuario)
+    return usuario is not None and usuario.status != "Inativo"

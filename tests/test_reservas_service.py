@@ -4,8 +4,106 @@ import pandas as pd
 
 from datetime import date, time
 
-from app.models.dados import DATA_DIR
-from app.services.reservas_service import criar_reserva, cancelar_reserva, alterar_reserva
+from app.models.dados import DATA_DIR, carregar_reservas, carregar_usuarios
+from app.services.reservas_service import (
+    criar_reserva,
+    cancelar_reserva,
+    alterar_reserva,
+    aprovar_reserva,
+    negar_reserva,
+)
+
+
+# ---------------------------------------------------------------------------
+# Helpers: leem os IDs direto dos CSVs, então não há IDs "chumbados" nos testes
+# de autorização.
+# ---------------------------------------------------------------------------
+
+def _buscar_usuario(admin, ativo=True):
+    usuarios = carregar_usuarios()
+    filtro = (usuarios["role"] == "Admin") if admin else (usuarios["role"] != "Admin")
+    filtro &= (usuarios["status"] != "Inativo") if ativo else (usuarios["status"] == "Inativo")
+    achados = usuarios[filtro]
+    return achados.iloc[0] if not achados.empty else None
+
+
+def _buscar_reserva(status):
+    reservas = carregar_reservas()
+    achadas = reservas[reservas["status"] == status]
+    return int(achadas.iloc[0]["idReserva"]) if not achadas.empty else None
+
+
+def _status_reserva(id_reserva):
+    reservas = carregar_reservas()
+    return reservas[reservas["idReserva"] == id_reserva].iloc[0]["status"]
+
+
+def _garantir_reserva_pendente():
+    """Devolve o ID de uma reserva Pendente. Se não houver nenhuma no CSV,
+    transforma uma Confirmada em Pendente (o CSV é restaurado no fim do teste)."""
+    reservas = carregar_reservas()
+    pendentes = reservas[reservas["status"] == "Pendente"]
+    if not pendentes.empty:
+        return int(pendentes.iloc[0]["idReserva"])
+
+    confirmadas = reservas[reservas["status"] == "Confirmada"]
+    if confirmadas.empty:
+        return None
+
+    id_reserva = int(confirmadas.iloc[0]["idReserva"])
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Pendente"
+    reservas.to_csv(DATA_DIR / "reservas.csv", sep=";", index=False)
+    return id_reserva
+
+
+def _definir_status_usuario(id_usuario, status):
+    usuarios = carregar_usuarios()
+    usuarios.loc[usuarios["idUser"] == id_usuario, "status"] = status
+    usuarios.to_csv(DATA_DIR / "usuarios.csv", sep=";", index=False)
+
+
+# ---------------------------------------------------------------------------
+# Classes base: backup/restauração dos CSVs
+# ---------------------------------------------------------------------------
+
+class BaseCSVTest(unittest.TestCase):
+    """Faz backup de reservas.csv e usuarios.csv e restaura ao final."""
+
+    ARQUIVOS = ["reservas.csv", "usuarios.csv"]
+
+    def setUp(self):
+        self.arquivo_reservas = DATA_DIR / "reservas.csv"
+
+        for nome in self.ARQUIVOS:
+            origem = DATA_DIR / nome
+            backup = DATA_DIR / f"{origem.stem}_backup.csv"
+            shutil.copy(origem, backup)
+            self.addCleanup(self._restaurar, origem, backup)
+
+    @staticmethod
+    def _restaurar(origem, backup):
+        shutil.copy(backup, origem)
+        backup.unlink()
+
+
+class BaseAutorizacaoTest(BaseCSVTest):
+    """Pega um Admin ativo e um usuário comum ativo do usuarios.csv."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = _buscar_usuario(admin=True)
+        self.comum = _buscar_usuario(admin=False)
+
+        if self.admin is None or self.comum is None:
+            self.skipTest("É preciso ter um Admin ativo e um usuário comum ativo no usuarios.csv")
+
+        self.id_admin = int(self.admin["idUser"])
+        self.id_comum = int(self.comum["idUser"])
+
+
+# ---------------------------------------------------------------------------
+# Reservas: criar / cancelar / alterar
+# ---------------------------------------------------------------------------
 
 
 class TestCriarReserva(unittest.TestCase):
@@ -218,16 +316,6 @@ class TestAlterarReserva(unittest.TestCase):
         shutil.copy(self.backup_reservas, self.arquivo_reservas)
         self.backup_reservas.unlink()
 
-    def test_alterar_com_conflito(self):
-        resultado = alterar_reserva(
-            1,
-            4,
-            3,
-            date(2026, 6, 19),
-            time(19, 0),
-            time(21, 0)
-    )
-
     def test_alterar_reserva_de_outro_usuario(self):
         resultado = alterar_reserva(
             1,
@@ -308,6 +396,117 @@ class TestAlterarReserva(unittest.TestCase):
         reserva = reservas[reservas["idReserva"] == 8]
 
         self.assertEqual(reserva.iloc[0]["status"], "Confirmada")   
-        
+
+
+# ---------------------------------------------------------------------------
+# Reservas: aprovar / negar (autorização)
+# ---------------------------------------------------------------------------
+
+class TestAprovarNegarReserva(BaseAutorizacaoTest):
+
+    def setUp(self):
+        super().setUp()
+        self.pendente = _garantir_reserva_pendente()
+
+        if self.pendente is None:
+            self.skipTest("É preciso ter ao menos uma reserva Confirmada ou Pendente no reservas.csv")
+
+    # --- deve ser negado -------------------------------------------------
+
+    def test_usuario_comum_nao_aprova(self):
+        resultado = aprovar_reserva(self.pendente, self.id_comum)
+
+        self.assertFalse(resultado)
+        self.assertEqual(_status_reserva(self.pendente), "Pendente")
+
+    def test_usuario_comum_nao_nega(self):
+        resultado = negar_reserva(self.pendente, self.id_comum)
+
+        self.assertFalse(resultado)
+        self.assertEqual(_status_reserva(self.pendente), "Pendente")
+
+    def test_admin_inativo_nao_aprova(self):
+        _definir_status_usuario(self.id_admin, "Inativo")
+
+        resultado = aprovar_reserva(self.pendente, self.id_admin)
+
+        self.assertFalse(resultado)
+        self.assertEqual(_status_reserva(self.pendente), "Pendente")
+
+    def test_solicitante_inexistente_nao_aprova(self):
+        self.assertFalse(aprovar_reserva(self.pendente, 99999))
+        self.assertEqual(_status_reserva(self.pendente), "Pendente")
+
+    def test_solicitante_none_nao_aprova(self):
+        self.assertFalse(aprovar_reserva(self.pendente, None))
+        self.assertEqual(_status_reserva(self.pendente), "Pendente")
+
+    # --- deve funcionar --------------------------------------------------
+
+    def test_admin_aprova_reserva_pendente(self):
+        resultado = aprovar_reserva(self.pendente, self.id_admin)
+
+        self.assertTrue(resultado)
+        self.assertEqual(_status_reserva(self.pendente), "Confirmada")
+
+    def test_admin_nega_reserva_pendente(self):
+        resultado = negar_reserva(self.pendente, self.id_admin)
+
+        self.assertTrue(resultado)
+        self.assertEqual(_status_reserva(self.pendente), "Cancelada")
+
+    def test_admin_nao_aprova_reserva_ja_confirmada(self):
+        confirmada = _buscar_reserva("Confirmada")
+        if confirmada is None:
+            self.skipTest("Não há reserva Confirmada no reservas.csv")
+
+        self.assertFalse(aprovar_reserva(confirmada, self.id_admin))
+
+    def test_admin_aprova_reserva_inexistente(self):
+        self.assertFalse(aprovar_reserva(99999, self.id_admin))
+
+
+class TestUsuarioInativoReservas(BaseAutorizacaoTest):
+
+    def setUp(self):
+        super().setUp()
+        reservas = carregar_reservas()
+        minhas = reservas[(reservas["idUser"] == self.id_comum) & (reservas["status"] == "Confirmada")]
+        if minhas.empty:
+            self.skipTest("O usuário comum precisa ter uma reserva Confirmada no reservas.csv")
+        self.id_reserva = int(minhas.iloc[0]["idReserva"])
+
+    def test_usuario_inativo_nao_cria_reserva(self):
+        _definir_status_usuario(self.id_comum, "Inativo")
+        total_antes = len(carregar_reservas())
+
+        resultado = criar_reserva(self.id_comum, 2, date(2026, 9, 16), time(19, 0), time(21, 0))
+
+        self.assertIs(resultado, False)
+        self.assertEqual(len(carregar_reservas()), total_antes)
+
+    def test_usuario_inexistente_nao_cria_reserva(self):
+        resultado = criar_reserva(99999, 2, date(2026, 9, 16), time(19, 0), time(21, 0))
+
+        self.assertIs(resultado, False)
+
+    def test_usuario_inativo_nao_cancela_reserva(self):
+        _definir_status_usuario(self.id_comum, "Inativo")
+
+        self.assertFalse(cancelar_reserva(self.id_reserva, self.id_comum))
+        self.assertEqual(_status_reserva(self.id_reserva), "Confirmada")
+
+    def test_usuario_inativo_nao_altera_reserva(self):
+        _definir_status_usuario(self.id_comum, "Inativo")
+
+        resultado = alterar_reserva(
+            self.id_reserva, self.id_comum, 3, date(2026, 6, 16), time(19, 0), time(21, 0)
+        )
+
+        self.assertFalse(resultado)
+        self.assertEqual(_status_reserva(self.id_reserva), "Confirmada")
+
+    def test_usuario_ativo_continua_cancelando(self):
+        self.assertTrue(cancelar_reserva(self.id_reserva, self.id_comum))
 if __name__ == "__main__":
     unittest.main()

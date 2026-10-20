@@ -83,7 +83,7 @@ def render():
                         col_aprovar, col_negar = st.columns(2)
                         with col_aprovar:
                             if st.button("Reservar", key=f"aprovar_{pendencia['idReserva']}"):
-                                sucesso, mensagem, _ = aprovar_reserva(pendencia["idReserva"])
+                                sucesso, mensagem, _ = aprovar_reserva(pendencia["idReserva"], usuario.id)
                                 if sucesso:
                                     st.success(mensagem)
                                     st.rerun()
@@ -91,7 +91,7 @@ def render():
                                     st.error(mensagem)
                         with col_negar:
                             if st.button("Cancelar", key=f"negar_{pendencia['idReserva']}"):
-                                sucesso, mensagem, _ = negar_reserva(pendencia["idReserva"])
+                                sucesso, mensagem, _ = negar_reserva(pendencia["idReserva"], usuario.id)
                                 if sucesso:
                                     st.success(mensagem)
                                     st.rerun()

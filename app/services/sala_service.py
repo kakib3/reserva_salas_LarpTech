@@ -2,6 +2,8 @@ import pandas as pd
 
 from app.models.dados import DATA_DIR, carregar_salas
 from app.models.sala import Sala
+from app.services import usuarios_service
+from app.utils import salas_ocultas
 
 
 def listar_salas():
@@ -19,7 +21,9 @@ def buscar_sala_por_id(id_sala):
     return Sala(sala["idSala"], sala["nome"], sala["capacidade"], sala["predio"], sala["andar"], sala["status"], sala["tipoSala"])
 
 
-def criar_sala(nome, capacidade, predio, andar, status, tipo_sala):
+def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitante):
+    usuarios_service.exigir_admin(id_solicitante)  # PermissionError se não for Admin ativo
+
     arquivo = DATA_DIR / "salas.csv"
 
     sala_obj = Sala(None, nome, capacidade, predio, andar, status, tipo_sala)
@@ -49,7 +53,9 @@ def criar_sala(nome, capacidade, predio, andar, status, tipo_sala):
     return sala_obj
 
 
-def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala):
+def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicitante):
+    usuarios_service.exigir_admin(id_solicitante)
+
     arquivo = DATA_DIR / "salas.csv"
     salas = carregar_salas()
 
@@ -71,7 +77,9 @@ def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala):
     return sala_obj
 
 
-def alterar_status_sala(id_sala, novo_status):
+def alterar_status_sala(id_sala, novo_status, id_solicitante):
+    usuarios_service.exigir_admin(id_solicitante)
+
     arquivo = DATA_DIR / "salas.csv"
     salas = carregar_salas()
 
@@ -89,3 +97,13 @@ def alterar_status_sala(id_sala, novo_status):
     salas.loc[filtro, "status"] = novo_status
     salas.to_csv(arquivo, sep=";", index=False)
     return True
+
+
+def ocultar_sala(id_sala, id_solicitante):
+    usuarios_service.exigir_admin(id_solicitante)
+    salas_ocultas.ocultar_sala(id_sala)
+
+
+def mostrar_sala(id_sala, id_solicitante):
+    usuarios_service.exigir_admin(id_solicitante)
+    salas_ocultas.mostrar_sala(id_sala)
