@@ -2,9 +2,9 @@ import unittest
 import shutil
 import pandas as pd
 
-from datetime import date, time
+from datetime import date, time, datetime
 
-from app.models.dados import DATA_DIR, carregar_reservas, carregar_usuarios
+from app.models.dados import DATA_DIR, carregar_reservas, carregar_usuarios, carregar_salas
 from app.services.reservas_service import (
     criar_reserva,
     cancelar_reserva,
@@ -508,5 +508,32 @@ class TestUsuarioInativoReservas(BaseAutorizacaoTest):
 
     def test_usuario_ativo_continua_cancelando(self):
         self.assertTrue(cancelar_reserva(self.id_reserva, self.id_comum))
+    
+    def test_reserva_confirmada_em_lab_ou_auditorio_volta_para_pendente(self):
+        # reserva 13 (usuário 1) está Confirmada no Lab01
+        self.assertEqual(_status_reserva(13), "Confirmada")
+
+        resultado = alterar_reserva(13, 1, 6, date(2026, 6, 8), time(19, 0), time(21, 0))
+
+        self.assertTrue(resultado)
+        self.assertEqual(_status_reserva(13), "Pendente")
+
+    def test_reserva_pendente_so_volta_a_confirmada_com_admin(self):
+        # usuário 1 é Aluno e usuário 5 é Admin
+        alterar_reserva(13, 1, 6, date(2026, 6, 8), time(19, 0), time(21, 0))
+
+        self.assertFalse(aprovar_reserva(13, 1))
+        self.assertEqual(_status_reserva(13), "Pendente")
+
+        self.assertTrue(aprovar_reserva(13, 5))
+        self.assertEqual(_status_reserva(13), "Confirmada")
+
+    def test_reserva_confirmada_movida_para_auditorio_fica_pendente(self):
+        # reserva 3 (usuário 1) está Confirmada em sala comum; sala 11 é o auditório
+        resultado = alterar_reserva(3, 1, 11, date(2026, 6, 16), time(19, 0), time(21, 0))
+
+        self.assertTrue(resultado)
+        self.assertEqual(_status_reserva(3), "Pendente")
+            
 if __name__ == "__main__":
     unittest.main()
