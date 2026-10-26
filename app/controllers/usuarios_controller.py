@@ -1,10 +1,10 @@
 from app.services import usuarios_service
 
 
-def cadastrar_usuario(nome, email, telefone, role, senha):
+def cadastrar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
     try:
-        resultado = usuarios_service.criar_usuario(nome, email, telefone, role, senha)
-    except ValueError as e:
+        resultado = usuarios_service.criar_usuario(nome, email, telefone, role, senha, id_solicitante)
+    except (ValueError, PermissionError) as e:
         return False, str(e), None
 
     if resultado is False:
@@ -22,10 +22,10 @@ def fazer_login(email, senha):
     return True, f"Bem-vindo, {resultado.nome}!", resultado
 
 
-def editar_usuario(id_usuario, nome, email, telefone, role):
+def editar_usuario(id_usuario, nome, email, telefone, role, id_solicitante):
     try:
-        resultado = usuarios_service.alterar_usuario(id_usuario, nome, email, telefone, role)
-    except ValueError as e:
+        resultado = usuarios_service.alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role)
+    except (ValueError, PermissionError) as e:
         return False, str(e), None
 
     if resultado is False:
@@ -34,10 +34,10 @@ def editar_usuario(id_usuario, nome, email, telefone, role):
     return True, "Dados atualizados com sucesso.", resultado
 
 
-def trocar_senha(id_usuario, senha_atual, nova_senha):
+def trocar_senha(id_usuario, senha_atual, nova_senha, id_solicitante):
     try:
-        resultado = usuarios_service.alterar_senha(id_usuario, senha_atual, nova_senha)
-    except ValueError as e:
+        resultado = usuarios_service.alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha)
+    except (ValueError, PermissionError) as e:
         return False, str(e), None
 
     if resultado is False:
@@ -46,8 +46,11 @@ def trocar_senha(id_usuario, senha_atual, nova_senha):
     return True, "Senha alterada com sucesso.", None
 
 
-def desativar_usuario(id_usuario):
-    resultado = usuarios_service.desativar_usuario(id_usuario)
+def desativar_usuario(id_usuario, id_solicitante):
+    try:
+        resultado = usuarios_service.desativar_usuario(id_solicitante, id_usuario)
+    except (ValueError, PermissionError) as e:
+        return False, str(e), None
 
     if resultado is False:
         return False, "Usuário não encontrado ou já está inativo.", None
@@ -55,8 +58,11 @@ def desativar_usuario(id_usuario):
     return True, "Usuário desativado com sucesso.", None
 
 
-def obter_usuario(id_usuario):
-    usuario = usuarios_service.buscar_usuario_por_id(id_usuario)
+def obter_usuario(id_usuario, id_solicitante):
+    try:
+        usuario = usuarios_service.obter_usuario(id_solicitante, id_usuario)
+    except PermissionError as e:
+        return False, str(e), None
 
     if usuario is None:
         return False, "Usuário não encontrado.", None
@@ -64,5 +70,10 @@ def obter_usuario(id_usuario):
     return True, "", usuario
 
 
-def listar_todos_usuarios():
-    return usuarios_service.listar_usuarios()
+def listar_todos_usuarios(id_solicitante):
+    try:
+        usuarios = usuarios_service.listar_usuarios(id_solicitante)
+    except PermissionError as e:
+        return False, str(e), None
+
+    return True, "", usuarios

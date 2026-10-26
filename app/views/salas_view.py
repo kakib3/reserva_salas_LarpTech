@@ -1,7 +1,8 @@
 import streamlit as st
 from app.models.dados import carregar_salas
+from app.controllers import salas_controller
 from app.utils.sessao import usuario_logado
-from app.utils.salas_ocultas import ocultar_sala, esta_oculta
+from app.utils.salas_ocultas import esta_oculta
 
 
 def formatar_nome_sala(nome):
@@ -20,7 +21,9 @@ def render():
     eh_admin = usuario is not None and usuario.role == "Admin"
 
     salas = carregar_salas()
-    salas = salas[~salas["idSala"].apply(esta_oculta)]
+    if not eh_admin:
+        # Só o Admin enxerga as salas ocultas (para poder exibi-las de novo)
+        salas = salas[~salas["idSala"].apply(esta_oculta)]
 
     predios_formatados = sorted(set(salas["predio"].apply(formatar_nome_sala)))
 
@@ -49,15 +52,32 @@ def render():
     colunas = st.columns(2)
     for indice, (_, sala) in enumerate(salas.iterrows()):
         coluna_atual = colunas[indice % 2]
+        oculta = esta_oculta(sala["idSala"])
+
         with coluna_atual:
             with st.container(border=True):
                 st.write(formatar_nome_sala(sala["nome"]))
                 st.write(f"Capacidade: {sala['capacidade']}")
                 st.write(f"Status: {sala['status']}")
-                if st.button("Ver detalhes", key=f"detalhes_{sala['idSala']}"):
+
+                if oculta:
+                    st.caption("Oculta para os usuários")
+                elif st.button("Ver detalhes", key=f"detalhes_{sala['idSala']}"):
                     st.session_state["sala_pre_selecionada_detalhes"] = sala["idSala"]
                     st.switch_page(st.session_state["pagina_detalhes_sala"])
+
                 if eh_admin:
-                    if st.button("Ocultar", key=f"ocultar_{sala['idSala']}", type="primary"):
-                        ocultar_sala(sala["idSala"])
-                        st.rerun()
+                    if oculta:
+                        if st.button("Exibir", key=f"exibir_{sala['idSala']}"):
+                            sucesso, mensagem, _ = salas_controller.mostrar_sala(sala["idSala"], usuario.id)
+                            if sucesso:
+                                st.rerun()
+                            else:
+                                st.error(mensagem)
+                    else:
+                        if st.button("Ocultar", key=f"ocultar_{sala['idSala']}", type="primary"):
+                            sucesso, mensagem, _ = salas_controller.ocultar_sala(sala["idSala"], usuario.id)
+                            if sucesso:
+                                st.rerun()
+                            else:
+                                st.error(mensagem)

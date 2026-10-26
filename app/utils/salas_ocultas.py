@@ -19,4 +19,4 @@ def esta_oculta(id_sala):
 
 
 def listar_ocultas():
-    return _obter_conjunto_ocultas()
+    return frozenset(_obter_conjunto_ocultas())

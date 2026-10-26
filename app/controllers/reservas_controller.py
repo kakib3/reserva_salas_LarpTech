@@ -37,8 +37,8 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     return True, "Reserva alterada com sucesso.", None
 
     
-def aprovar_reserva(id_reserva):
-    resultado = reservas_service.aprovar_reserva(id_reserva)
+def aprovar_reserva(id_reserva, id_solicitante):
+    resultado = reservas_service.aprovar_reserva(id_reserva, id_solicitante)
 
     if resultado is False:
         return False, "Não foi possível aprovar: reserva não encontrada ou não está pendente.", None
@@ -46,8 +46,8 @@ def aprovar_reserva(id_reserva):
     return True, "Reserva aprovada com sucesso.", None
 
 
-def negar_reserva(id_reserva):
-    resultado = reservas_service.negar_reserva(id_reserva)
+def negar_reserva(id_reserva, id_solicitante):
+    resultado = reservas_service.negar_reserva(id_reserva, id_solicitante)
 
     if resultado is False:
         return False, "Não foi possível negar: reserva não encontrada ou não está pendente.", None

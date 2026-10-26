@@ -5,6 +5,7 @@ from app.models.reserva import Reserva
 from datetime import date
 from app.models.dados import carregar_salas
 from app.models.dados import carregar_reservas
+from app.services import usuarios_service
 
 def verificar_sala_disponivel(id_sala):
     salas = carregar_salas()
@@ -47,6 +48,8 @@ def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_
     return not reservas[mesma_sala_e_data & sobreposicao].empty
 
 def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
+    if not usuarios_service.checar_usuario_ativo(id_usuario):
+        return False  # usuário inexistente ou inativo
     arquivo = DATA_DIR / "reservas.csv"
     
     if not verificar_sala_disponivel(id_sala):
@@ -68,7 +71,9 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
         reserva_obj.status = "Pendente"
     elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
         reserva_obj.status = "Confirmada"
-        
+    else:
+        return False
+    
     reservas = carregar_reservas()
     novo_id = reservas["idReserva"].max() + 1 if not reservas.empty else 1
     reserva_obj.criado_em = date.today()
@@ -91,6 +96,8 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     return reserva_obj
 
 def cancelar_reserva(id_reserva,id_usuario):
+    if not usuarios_service.checar_usuario_ativo(id_usuario):
+        return False  # usuário inexistente ou inativo
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
     
@@ -110,6 +117,8 @@ def cancelar_reserva(id_reserva,id_usuario):
     return True
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
+    if not usuarios_service.checar_usuario_ativo(id_usuario):
+        return False  # usuário inexistente ou inativo
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
     
@@ -143,6 +152,8 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
         reserva_obj.status = "Pendente"
     elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
         reserva_obj.status = "Confirmada"
+    else:
+        return False
     
     reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
     
@@ -158,11 +169,15 @@ def descobre_tipo_sala(id_sala):
     return None
 
     
-def aprovar_reserva(id_reserva):
+def aprovar_reserva(id_reserva, id_usuario):
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
 
     reserva = reservas[reservas["idReserva"] == id_reserva]
+    
+    if usuarios_service.checar_admin(id_usuario) == False:
+        return False
+        
 
     if reserva.empty:
         return False
@@ -174,11 +189,14 @@ def aprovar_reserva(id_reserva):
     reservas.to_csv(arquivo, sep=";", index=False)
     return True
 
-def negar_reserva(id_reserva):
+def negar_reserva(id_reserva, id_usuario):
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
 
     reserva = reservas[reservas["idReserva"] == id_reserva]
+    
+    if(usuarios_service.checar_admin(id_usuario) == False):
+            return False
 
     if reserva.empty:
         return False
