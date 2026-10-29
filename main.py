@@ -1,5 +1,5 @@
 import streamlit as st
-
+import mysql.connector
 from app.views.login_view import render as render_login
 from app.views.home_view import render as render_home
 from app.views.salas_view import render as render_salas
@@ -7,8 +7,7 @@ from app.views.detalhes_sala_view import render as render_detalhes_sala
 from app.views.reservar_view import render as render_reservar
 from app.views.minhas_reservas_view import render as render_minhas_reservas
 from app.utils.sessao import usuario_logado, logout_sessao
-
-
+    
 def home_page():
     render_home()
 
