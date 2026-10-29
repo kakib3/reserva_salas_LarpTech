@@ -7,6 +7,25 @@ from app.views.detalhes_sala_view import render as render_detalhes_sala
 from app.views.reservar_view import render as render_reservar
 from app.views.minhas_reservas_view import render as render_minhas_reservas
 from app.utils.sessao import usuario_logado, logout_sessao
+
+def conectar_banco():
+    return mysql.connector.connect(
+        host=st.secrets["mysql"]["host"],
+        port=st.secrets["mysql"]["port"],
+        database=st.secrets["mysql"]["database"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"],
+        ssl_ca=st.secrets["mysql"]["ssl_ca"]
+    )
+    
+try:
+        
+    conexao = conectar_banco()
+
+    conexao.close()
+
+except mysql.connector.Error as erro:
+    st.error(f"Erro ao conectar ao banco: {erro}")
     
 def home_page():
     render_home()
