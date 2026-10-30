@@ -1,6 +1,8 @@
 from app.services import reservas_service
+from app.utils.excecoes import tratar_erro_de_dados
 
 
+@tratar_erro_de_dados
 def reservar_sala(id_usuario, id_sala, data, hora_inicio, hora_fim):
     try:
         resultado = reservas_service.criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim)
@@ -16,6 +18,7 @@ def reservar_sala(id_usuario, id_sala, data, hora_inicio, hora_fim):
     return True, "Reserva confirmada com sucesso.", resultado
 
 
+@tratar_erro_de_dados
 def cancelar_reserva(id_reserva, id_usuario):
     resultado = reservas_service.cancelar_reserva(id_reserva, id_usuario)
 
@@ -25,6 +28,7 @@ def cancelar_reserva(id_reserva, id_usuario):
     return True, "Reserva cancelada com sucesso.", None
 
 
+@tratar_erro_de_dados
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
     try:
         resultado = reservas_service.alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim)
@@ -36,7 +40,8 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
     return True, "Reserva alterada com sucesso.", None
 
-    
+
+@tratar_erro_de_dados
 def aprovar_reserva(id_reserva, id_solicitante):
     resultado = reservas_service.aprovar_reserva(id_reserva, id_solicitante)
 
@@ -46,6 +51,7 @@ def aprovar_reserva(id_reserva, id_solicitante):
     return True, "Reserva aprovada com sucesso.", None
 
 
+@tratar_erro_de_dados
 def negar_reserva(id_reserva, id_solicitante):
     resultado = reservas_service.negar_reserva(id_reserva, id_solicitante)
 

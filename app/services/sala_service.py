@@ -1,6 +1,6 @@
 import pandas as pd
 
-from app.models.dados import DATA_DIR, carregar_salas
+from app.models.dados import DATA_DIR, carregar_salas, _salvar_csv
 from app.models.sala import Sala
 from app.services import usuarios_service
 from app.utils import salas_ocultas
@@ -48,7 +48,7 @@ def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitant
     }])
 
     salas = pd.concat([salas, nova_sala], ignore_index=True)
-    salas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(salas, arquivo)
 
     return sala_obj
 
@@ -73,7 +73,7 @@ def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicit
     filtro = salas["idSala"] == id_sala
     salas.loc[filtro, ["nome", "capacidade", "predio", "andar", "tipoSala"]] = [nome, capacidade, predio, andar, tipo_sala]
 
-    salas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(salas, arquivo)
     return sala_obj
 
 
@@ -95,7 +95,7 @@ def alterar_status_sala(id_sala, novo_status, id_solicitante):
         return False  # Já está nesse status
 
     salas.loc[filtro, "status"] = novo_status
-    salas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(salas, arquivo)
     return True
 
 

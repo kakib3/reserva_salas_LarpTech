@@ -5,6 +5,7 @@ from app.models.reserva import Reserva
 from datetime import date
 from app.models.dados import carregar_salas
 from app.models.dados import carregar_reservas
+from app.models.dados import _salvar_csv
 from app.services import usuarios_service
 
 def verificar_sala_disponivel(id_sala):
@@ -92,7 +93,7 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     
     nova_linha = pd.DataFrame([nova_reserva])
     reservas = pd.concat([reservas, nova_linha], ignore_index=True)
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return reserva_obj
 
 def cancelar_reserva(id_reserva,id_usuario):
@@ -113,7 +114,7 @@ def cancelar_reserva(id_reserva,id_usuario):
         return False 
     
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return True
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
@@ -157,7 +158,7 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     
     reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
     
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return True
 
 #Métodos Utilitários
@@ -186,7 +187,7 @@ def aprovar_reserva(id_reserva, id_usuario):
         return False
 
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Confirmada"
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return True
 
 def negar_reserva(id_reserva, id_usuario):
@@ -205,5 +206,5 @@ def negar_reserva(id_reserva, id_usuario):
         return False
 
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return True
