@@ -58,22 +58,18 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     
     reserva_obj = Reserva(None, id_usuario, id_sala, data, hora_inicio, hora_fim, None, None)
     
-    reserva_obj.validar_horario()
-    reserva_obj.validar_intervalo()
-    reserva_obj.validar_horario_funcionamento()
-    reserva_obj.validar_dia_util()
+    # AQUI EM BAIXO # AQUI EM BAIXO # AQUI EM BAIXO # AQUI EM BAIXO
+    _validar_reserva(reserva_obj)
     
     if verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim):
         return False  # Conflito de horário
     
-    sala_tipo = descobre_tipo_sala(id_sala)
+    status = _definir_status_reserva(id_sala)
     
-    if(sala_tipo == "LABORATORIO" or sala_tipo == "AUDITORIO"):
-        reserva_obj.status = "Pendente"
-    elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
-        reserva_obj.status = "Confirmada"
-    else:
+    if status is None:
         return False
+    
+    reserva_obj.status = status
     
     reservas = carregar_reservas()
     novo_id = reservas["idReserva"].max() + 1 if not reservas.empty else 1
@@ -139,22 +135,17 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     
     reserva_obj = Reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim, reserva.iloc[0]["status"], None)
     
-    reserva_obj.validar_horario()
-    reserva_obj.validar_intervalo()
-    reserva_obj.validar_horario_funcionamento()
-    reserva_obj.validar_dia_util()
+    _validar_reserva(reserva_obj)
     
     if verificar_conflito_horario(nova_sala, nova_data, novo_inicio, novo_fim, id_reserva_ignorar=id_reserva):
         return False  # Conflito de horário
     
-    sala_tipo = descobre_tipo_sala(nova_sala)
+    status = _definir_status_reserva(nova_sala)
     
-    if(sala_tipo == "LABORATORIO" or sala_tipo == "AUDITORIO"):
-        reserva_obj.status = "Pendente"
-    elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
-        reserva_obj.status = "Confirmada"
-    else:
+    if status is None:
         return False
+    
+    reserva_obj.status = status
     
     reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
     
@@ -169,7 +160,22 @@ def descobre_tipo_sala(id_sala):
         return sala.iloc[0]["tipoSala"]
     return None
 
+def _validar_reserva(reserva):
+    reserva.validar_horario()
+    reserva.validar_intervalo()
+    reserva.validar_horario_funcionamento()
+    reserva.validar_dia_util()
+
+def _definir_status_reserva(id_sala):
+    sala_tipo = descobre_tipo_sala(id_sala)
     
+    if sala_tipo == "LABORATORIO" or sala_tipo == "AUDITORIO":
+        return "Pendente"
+    elif sala_tipo == "SALA" or sala_tipo == "REUNIAO":
+        return "Confirmada"
+    
+    return None
+
 def aprovar_reserva(id_reserva, id_usuario):
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
