@@ -1,6 +1,7 @@
 import unittest
 import shutil
 import pandas as pd
+from unittest.mock import patch
 
 from datetime import date, time, datetime
 
@@ -462,6 +463,13 @@ class TestAprovarNegarReserva(BaseAutorizacaoTest):
 
         self.assertTrue(resultado)
         self.assertEqual(_status_reserva(self.pendente), "Confirmada")
+
+    def test_admin_nao_aprova_quando_sala_esta_indisponivel(self):
+        with patch("app.services.reservas_service.verificar_sala_disponivel", return_value=False):
+            resultado = aprovar_reserva(self.pendente, self.id_admin)
+
+        self.assertFalse(resultado)
+        self.assertEqual(_status_reserva(self.pendente), "Pendente")
 
     def test_admin_nega_reserva_pendente(self):
         resultado = negar_reserva(self.pendente, self.id_admin)
