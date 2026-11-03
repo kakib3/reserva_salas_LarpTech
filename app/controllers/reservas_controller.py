@@ -1,5 +1,6 @@
 from app.services import reservas_service
 from app.models.dados import carregar_reservas
+from app.services import usuarios_service
 from app.utils.excecoes import tratar_erro_de_dados
 
 
@@ -44,6 +45,9 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
 @tratar_erro_de_dados
 def aprovar_reserva(id_reserva, id_solicitante):
+    if not usuarios_service.checar_admin(id_solicitante):
+        return False, "Não foi possível aprovar: usuário sem permissão de administrador.", None
+
     reservas = carregar_reservas()
     reserva = reservas[reservas["idReserva"] == id_reserva]
 
