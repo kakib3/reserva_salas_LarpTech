@@ -186,6 +186,10 @@ def aprovar_reserva(id_reserva, id_usuario):
     if reserva.iloc[0]["status"] != "Pendente":
         return False
 
+    id_sala = reserva.iloc[0]["idSala"]
+    if not verificar_sala_disponivel(id_sala):
+        return False
+
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Confirmada"
     _salvar_csv(reservas, arquivo)
     return True
