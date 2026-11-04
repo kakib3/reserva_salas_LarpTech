@@ -4,16 +4,8 @@ from app.models.dados import carregar_salas, carregar_reservas, carregar_usuario
 from app.controllers.reservas_controller import aprovar_reserva, negar_reserva
 from app.utils.sessao import usuario_logado
 from app.utils.salas_ocultas import esta_oculta
-
-
-def formatar_nome_sala(nome):
-    letras = []
-    for i, caractere in enumerate(nome):
-        if caractere.isdigit() and i > 0 and nome[i - 1].isalpha():
-            letras.append(" ")
-        letras.append(caractere)
-    return "".join(letras)
-
+from app.utils.formatacao import formatar_nome_sala
+from app.models.constantes import StatusSala, StatusReserva
 
 def converter_data(texto):
     return datetime.strptime(str(texto), "%d/%m/%Y").date()
@@ -34,7 +26,7 @@ def render():
         salas = carregar_salas().set_index("idSala")
         reservas = carregar_reservas()
         minhas = reservas[reservas["idUser"] == usuario.id]
-        minhas = minhas[minhas["status"].isin(["Confirmada", "Pendente"])]
+        minhas = minhas[minhas["status"].isin(StatusReserva.ATIVAS)]
         minhas = minhas.copy()
         minhas["data_convertida"] = minhas["data"].apply(converter_data)
         minhas = minhas[minhas["data_convertida"] >= hoje]
@@ -57,7 +49,7 @@ def render():
         if usuario.role == "Admin":
             st.subheader("Pendências")
             todas_reservas = carregar_reservas()
-            pendentes = todas_reservas[todas_reservas["status"] == "Pendente"]
+            pendentes = todas_reservas[todas_reservas["status"] == StatusReserva.PENDENTE]
 
             if pendentes.empty:
                 st.write("Nenhuma pendência no momento.")
@@ -102,7 +94,7 @@ def render():
         st.subheader("Salas disponíveis agora")
         salas_disponiveis = carregar_salas()
         salas_disponiveis = salas_disponiveis[~salas_disponiveis["idSala"].apply(esta_oculta)]
-        disponiveis = salas_disponiveis[salas_disponiveis["status"] == "Disponivel"]
+        disponiveis = salas_disponiveis[salas_disponiveis["status"] == StatusSala.DISPONIVEL]
 
         if disponiveis.empty:
             st.write("Nenhuma sala disponível no momento.")
