@@ -4,15 +4,7 @@ from app.models.dados import carregar_salas, carregar_reservas, carregar_usuario
 from app.controllers.reservas_controller import aprovar_reserva, negar_reserva
 from app.utils.sessao import usuario_logado
 from app.utils.salas_ocultas import esta_oculta
-
-
-def formatar_nome_sala(nome):
-    letras = []
-    for i, caractere in enumerate(nome):
-        if caractere.isdigit() and i > 0 and nome[i - 1].isalpha():
-            letras.append(" ")
-        letras.append(caractere)
-    return "".join(letras)
+from app.utils.formatacao import formatar_nome_sala
 
 
 def converter_data(texto):
