@@ -2,6 +2,7 @@ import streamlit as st
 from app.models.dados import carregar_salas, obter_reservas_da_sala, carregar_usuarios
 from app.utils.salas_ocultas import esta_oculta
 from app.utils.formatacao import formatar_nome_sala
+from app.models.constantes import StatusReserva
 
 def render():
     st.title("Detalhes da Sala")
@@ -31,7 +32,7 @@ def render():
 
     st.subheader("Reservas confirmadas")
     reservas = obter_reservas_da_sala(sala["idSala"])
-    reservas = reservas[reservas["status"] == "Confirmada"]
+    reservas = reservas[reservas["status"] == StatusReserva.CONFIRMADA]
 
     if reservas.empty:
         st.write("Nenhuma reserva confirmada para esta sala.")

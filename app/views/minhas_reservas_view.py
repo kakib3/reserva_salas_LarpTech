@@ -4,6 +4,7 @@ from app.models.dados import carregar_reservas, carregar_salas
 from app.controllers.reservas_controller import cancelar_reserva, alterar_reserva
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
+from app.models.constantes import StatusReserva
 
 
 def converter_data(texto):
@@ -42,7 +43,7 @@ def render():
             st.write(f"Hora: {reserva['horaInicio']} às {reserva['horaFim']}")
             st.write(f"Status: {reserva['status']}")
 
-            if reserva["status"] in ["Confirmada", "Pendente"]:
+            if reserva["status"] in [StatusReserva.ATIVAS]:
                 col_cancelar, col_alterar = st.columns(2)
 
                 with col_cancelar:

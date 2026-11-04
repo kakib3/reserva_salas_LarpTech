@@ -1,7 +1,19 @@
-class Sala:
-    STATUS_VALIDOS = ["Disponivel", "Manutencao", "Indisponivel"]
-    TIPOS_VALIDOS = ["SALA", "REUNIAO", "LABORATORIO", "AUDITORIO"]
+from app.models.constantes import StatusSala, TipoSala
 
+class Sala:
+    STATUS_VALIDOS = [
+        StatusSala.DISPONIVEL,
+        StatusSala.MANUTENCAO,
+        StatusSala.INDISPONIVEL
+    ]
+    
+    TIPOS_VALIDOS = [
+        TipoSala.SALA,
+        TipoSala.REUNIAO,
+        TipoSala.LABORATORIO,
+        TipoSala.AUDITORIO
+    ]
+    
     def __init__(self, id, nome, capacidade, predio, andar, status, tipo_sala):
         self.id = id
         self.nome = nome

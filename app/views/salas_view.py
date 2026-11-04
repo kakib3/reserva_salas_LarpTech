@@ -4,7 +4,7 @@ from app.controllers import salas_controller
 from app.utils.sessao import usuario_logado
 from app.utils.salas_ocultas import esta_oculta
 from app.utils.formatacao import formatar_nome_sala
-
+from app.models.constantes import StatusSala
 
 def render():
     st.title("Salas")
@@ -29,7 +29,7 @@ def render():
         predio_escolhido = st.selectbox("Prédio", ["Todos"] + predios_formatados)
 
     if somente_disponiveis:
-        salas = salas[salas["status"] == "Disponivel"]
+        salas = salas[salas["status"] == StatusSala.DISPONIVEL]
     if capacidade_minima:
         salas = salas[salas["capacidade"] >= capacidade_minima]
     if predio_escolhido != "Todos":
