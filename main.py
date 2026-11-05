@@ -1,7 +1,7 @@
 import logging
 
 import streamlit as st
-
+import mysql.connector
 from app.views.login_view import render as render_login
 from app.views.home_view import render as render_home
 from app.views.salas_view import render as render_salas
@@ -13,7 +13,25 @@ from app.utils.excecoes import ErroDeDados
 
 log = logging.getLogger(__name__)
 
+def conectar_banco():
+    return mysql.connector.connect(
+        host=st.secrets["mysql"]["host"],
+        port=st.secrets["mysql"]["port"],
+        database=st.secrets["mysql"]["database"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"],
+        ssl_ca=st.secrets["mysql"]["ssl_ca"]
+    )
+    
+try:
+        
+    conexao = conectar_banco()
 
+    conexao.close()
+
+except mysql.connector.Error as erro:
+    st.error(f"Erro ao conectar ao banco: {erro}")
+    
 def home_page():
     render_home()
 
