@@ -1,8 +1,7 @@
 import pandas as pd
 
-from app.models.dados import DATA_DIR
+from app.models.dados import DATA_DIR, carregar_usuarios, _salvar_csv
 from app.models.usuario import Usuario
-from app.models.dados import carregar_usuarios
 
 
 def listar_usuarios(id_solicitante):
@@ -19,7 +18,7 @@ def buscar_usuario_por_id(id_usuario):
 
     usuario = usuario.iloc[0]
 
-    return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])  # <-- + usuario["status"]
+    return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])
 
 def buscar_usuario_por_email(email):
     usuarios = carregar_usuarios()
@@ -30,7 +29,7 @@ def buscar_usuario_por_email(email):
 
     usuario = usuario.iloc[0]
 
-    return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])  # <-- + usuario["status"]
+    return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])
 
 
 def verificar_email_disponivel(email, id_usuario_ignorar=None):
@@ -64,10 +63,10 @@ def criar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
     usuarios = carregar_usuarios()
     novo_id = 1 if usuarios.empty else int(usuarios["idUser"].max()) + 1
 
-    novo_usuario = pd.DataFrame([{"idUser": novo_id, "nome": nome, "email": email, "telefone": telefone, "role": role, "senha": senha, "status": "Ativo"}])  # <-- + "status": "Ativo"
+    novo_usuario = pd.DataFrame([{"idUser": novo_id, "nome": nome, "email": email, "telefone": telefone, "role": role, "senha": senha, "status": "Ativo"}])
 
     usuarios = pd.concat([usuarios, novo_usuario], ignore_index=True)
-    usuarios.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(usuarios, arquivo)
 
     return Usuario(novo_id, nome, email, telefone, role, senha, "Ativo")
 
@@ -121,7 +120,7 @@ def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
     filtro = usuarios["idUser"] == id_usuario
     usuarios.loc[filtro, ["nome", "email", "telefone", "role"]] = [nome, email, telefone, role]
 
-    usuarios.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(usuarios, arquivo)
     return usuario_obj
 
 def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
@@ -143,7 +142,7 @@ def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
     usuario_obj.validar_senha()
 
     usuarios.loc[usuarios["idUser"] == id_usuario, "senha"] = nova_senha
-    usuarios.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(usuarios, arquivo)
     return True
 
 def desativar_usuario(id_solicitante, id_usuario):
@@ -164,7 +163,7 @@ def desativar_usuario(id_solicitante, id_usuario):
         return False
     
     usuarios.loc[filtro, "status"] = "Inativo"
-    usuarios.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(usuarios, arquivo)
     return True
 
 def checar_admin(id_usuario):

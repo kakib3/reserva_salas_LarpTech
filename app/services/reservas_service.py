@@ -5,7 +5,9 @@ from app.models.reserva import Reserva
 from datetime import date
 from app.models.dados import carregar_salas
 from app.models.dados import carregar_reservas
+from app.models.dados import _salvar_csv
 from app.services import usuarios_service
+from app.models.constantes import StatusReserva, StatusSala, TipoSala
 
 def verificar_sala_disponivel(id_sala):
     salas = carregar_salas()
@@ -15,7 +17,7 @@ def verificar_sala_disponivel(id_sala):
     if sala.empty:
         return False
 
-    return sala.iloc[0]["status"] == "Disponivel"
+    return sala.iloc[0]["status"] == StatusSala.DISPONIVEL
 
 def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
     reservas = carregar_reservas()
@@ -38,7 +40,7 @@ def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_
     mesma_sala_e_data = (
         (reservas["idSala"] == id_sala)
         & (reservas["data"] == data) 
-        & (reservas["status"].isin(["Confirmada", "Pendente"]))
+        & (reservas["status"].isin(StatusReserva.ATIVAS))
     )
     sobreposicao = (reservas["horaInicio"] < hora_fim) & (reservas["horaFim"] > hora_inicio)
 
@@ -57,22 +59,17 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     
     reserva_obj = Reserva(None, id_usuario, id_sala, data, hora_inicio, hora_fim, None, None)
     
-    reserva_obj.validar_horario()
-    reserva_obj.validar_intervalo()
-    reserva_obj.validar_horario_funcionamento()
-    reserva_obj.validar_dia_util()
+    _validar_reserva(reserva_obj)
     
     if verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim):
         return False  # Conflito de horário
     
-    sala_tipo = descobre_tipo_sala(id_sala)
+    status = _definir_status_reserva(id_sala)
     
-    if(sala_tipo == "LABORATORIO" or sala_tipo == "AUDITORIO"):
-        reserva_obj.status = "Pendente"
-    elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
-        reserva_obj.status = "Confirmada"
-    else:
+    if status is None:
         return False
+    
+    reserva_obj.status = status
     
     reservas = carregar_reservas()
     novo_id = reservas["idReserva"].max() + 1 if not reservas.empty else 1
@@ -92,7 +89,7 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     
     nova_linha = pd.DataFrame([nova_reserva])
     reservas = pd.concat([reservas, nova_linha], ignore_index=True)
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return reserva_obj
 
 def cancelar_reserva(id_reserva,id_usuario):
@@ -109,11 +106,11 @@ def cancelar_reserva(id_reserva,id_usuario):
     if reserva.iloc[0]["idUser"] != id_usuario:
         return False  # Usuário não autorizado a cancelar esta reserva
     
-    if reserva.iloc[0]["status"] not in ["Confirmada", "Pendente"]:
+    if reserva.iloc[0]["status"] not in StatusReserva.ATIVAS:
         return False 
     
-    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
-    reservas.to_csv(arquivo, sep=";", index=False)
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
+    _salvar_csv(reservas, arquivo)
     return True
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
@@ -130,7 +127,7 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     if reserva.iloc[0]["idUser"] != id_usuario:
         return False  # Usuário não autorizado a alterar esta reserva
     
-    if reserva.iloc[0]["status"] not in ["Confirmada", "Pendente"]:
+    if reserva.iloc[0]["status"] not in StatusReserva.ATIVAS:
         return False  # Reserva não pode ser alterada
     
     if not verificar_sala_disponivel(nova_sala):
@@ -138,26 +135,21 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     
     reserva_obj = Reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim, reserva.iloc[0]["status"], None)
     
-    reserva_obj.validar_horario()
-    reserva_obj.validar_intervalo()
-    reserva_obj.validar_horario_funcionamento()
-    reserva_obj.validar_dia_util()
+    _validar_reserva(reserva_obj)
     
     if verificar_conflito_horario(nova_sala, nova_data, novo_inicio, novo_fim, id_reserva_ignorar=id_reserva):
         return False  # Conflito de horário
     
-    sala_tipo = descobre_tipo_sala(nova_sala)
+    status = _definir_status_reserva(nova_sala)
     
-    if(sala_tipo == "LABORATORIO" or sala_tipo == "AUDITORIO"):
-        reserva_obj.status = "Pendente"
-    elif(sala_tipo == "SALA" or sala_tipo == "REUNIAO"):
-        reserva_obj.status = "Confirmada"
-    else:
+    if status is None:
         return False
+    
+    reserva_obj.status = status
     
     reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
     
-    reservas.to_csv(arquivo, sep=";", index=False)
+    _salvar_csv(reservas, arquivo)
     return True
 
 #Métodos Utilitários
@@ -168,7 +160,22 @@ def descobre_tipo_sala(id_sala):
         return sala.iloc[0]["tipoSala"]
     return None
 
+def _validar_reserva(reserva):
+    reserva.validar_horario()
+    reserva.validar_intervalo()
+    reserva.validar_horario_funcionamento()
+    reserva.validar_dia_util()
+
+def _definir_status_reserva(id_sala):
+    sala_tipo = descobre_tipo_sala(id_sala)
     
+    if sala_tipo in TipoSala.PRECISA_APROVACAO:
+        return StatusReserva.PENDENTE
+    elif sala_tipo in (TipoSala.SALA, TipoSala.REUNIAO):
+        return StatusReserva.CONFIRMADA
+    
+    return None
+
 def aprovar_reserva(id_reserva, id_usuario):
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
@@ -182,11 +189,16 @@ def aprovar_reserva(id_reserva, id_usuario):
     if reserva.empty:
         return False
 
-    if reserva.iloc[0]["status"] != "Pendente":
+    if reserva.iloc[0]["status"] != StatusReserva.PENDENTE:
         return False
 
-    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Confirmada"
-    reservas.to_csv(arquivo, sep=";", index=False)
+    id_sala = reserva.iloc[0]["idSala"]
+      
+    if not verificar_sala_disponivel(id_sala):
+      return False
+
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CONFIRMADA
+    _salvar_csv(reservas, arquivo)
     return True
 
 def negar_reserva(id_reserva, id_usuario):
@@ -201,9 +213,9 @@ def negar_reserva(id_reserva, id_usuario):
     if reserva.empty:
         return False
 
-    if reserva.iloc[0]["status"] != "Pendente":
+    if reserva.iloc[0]["status"] != StatusReserva.PENDENTE:
         return False
 
-    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = "Cancelada"
-    reservas.to_csv(arquivo, sep=";", index=False)
+    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
+    _salvar_csv(reservas, arquivo)
     return True

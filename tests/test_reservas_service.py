@@ -83,7 +83,7 @@ def _dono_da_reserva(id_reserva):
 class BaseCSVTest(unittest.TestCase):
     """Faz backup de reservas.csv e usuarios.csv e restaura ao final."""
 
-    ARQUIVOS = ["reservas.csv", "usuarios.csv"]
+    ARQUIVOS = ["reservas.csv", "usuarios.csv", "salas.csv"]
 
     def setUp(self):
         self.arquivo_reservas = DATA_DIR / "reservas.csv"
@@ -462,6 +462,26 @@ class TestAprovarNegarReserva(BaseAutorizacaoTest):
 
         self.assertTrue(resultado)
         self.assertEqual(_status_reserva(self.pendente), "Confirmada")
+
+    def test_admin_nao_aprova_quando_sala_muda_para_indisponivel(self):
+        reservas = carregar_reservas()
+        id_sala = reservas.loc[reservas["idReserva"] == self.pendente, "idSala"].iloc[0]
+
+        for status_sala in ("Manutencao", "Indisponivel"):
+            with self.subTest(status_sala=status_sala):
+                backup_salas = DATA_DIR / "salas_backup.csv"
+                shutil.copy(backup_salas, DATA_DIR / "salas.csv")
+
+                salas = carregar_salas()
+                salas.loc[salas["idSala"] == id_sala, "status"] = status_sala
+                salas.to_csv(DATA_DIR / "salas.csv", sep=";", index=False)
+
+                resultado = aprovar_reserva(self.pendente, self.id_admin)
+
+                self.assertFalse(resultado)
+                self.assertEqual(_status_reserva(self.pendente), "Pendente")
+
+                shutil.copy(backup_salas, DATA_DIR / "salas.csv")
 
     def test_admin_nega_reserva_pendente(self):
         resultado = negar_reserva(self.pendente, self.id_admin)
