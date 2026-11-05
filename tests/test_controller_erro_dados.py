@@ -1,6 +1,7 @@
 """Cada controller deve devolver (False, mensagem_amigavel, None) quando o service
 levanta ErroDeDados. Estes testes importam os controllers reais do projeto."""
 import pytest
+import pandas as pd
 
 from app.utils.excecoes import ErroDeDados
 from app.controllers import reservas_controller, salas_controller, usuarios_controller
@@ -25,7 +26,24 @@ def _falha(*args, **kwargs):
 )
 def test_controller_converte_erro_de_dados(monkeypatch, controller, funcao_service, chamada):
     service = getattr(controller, "reservas_service", None) or getattr(controller, "usuarios_service")
+
+    # Simula um administrador para permitir chegar ao service.
+    if funcao_service == "aprovar_reserva":
+        monkeypatch.setattr(
+            controller.usuarios_service,
+            "checar_admin",
+            lambda id_usuario: True
+        )
+
+        # Evita depender dos dados reais do CSV.
+        monkeypatch.setattr(
+            controller,
+            "carregar_reservas",
+            lambda: pd.DataFrame(columns=["idReserva", "idSala"])
+        )
+
     monkeypatch.setattr(service, funcao_service, _falha)
+
     assert chamada(controller) == (False, MSG, None)
 
 
