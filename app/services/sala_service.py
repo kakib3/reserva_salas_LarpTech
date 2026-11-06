@@ -1,5 +1,4 @@
-import pandas as pd
-
+from app.models.conexao import conectar_banco
 from app.models.dados import DATA_DIR, carregar_salas, _salvar_csv
 from app.models.sala import Sala
 from app.services import usuarios_service
@@ -11,20 +10,26 @@ def listar_salas():
 
 
 def buscar_sala_por_id(id_sala):
-    salas = carregar_salas()
-    sala = salas[salas["idSala"] == id_sala]
-
-    if sala.empty:
-        return None
-
-    sala = sala.iloc[0]
-    return Sala(sala["idSala"], sala["nome"], sala["capacidade"], sala["predio"], sala["andar"], sala["status"], sala["tipoSala"])
+    
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+            
+        cursor.execute("SELECT * FROM salas WHERE id_sala = %s;", id_sala)
+            
+        return cursor.fetchall()
+        
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 
 def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitante):
     usuarios_service.exigir_admin(id_solicitante)  # PermissionError se não for Admin ativo
 
-    arquivo = DATA_DIR / "salas.csv"
 
     sala_obj = Sala(None, nome, capacidade, predio, andar, status, tipo_sala)
 
@@ -32,49 +37,61 @@ def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitant
     sala_obj.validar_capacidade()
     sala_obj.validar_status()
     sala_obj.validar_tipo_sala()
+    
+    valores = (nome, capacidade, predio, andar, status, tipo_sala)
+    conexao = conectar_banco()
+    cursor = None
 
-    salas = carregar_salas()
-    novo_id = 1 if salas.empty else int(salas["idSala"].max()) + 1
-    sala_obj.id = novo_id
-
-    nova_sala = pd.DataFrame([{
-        "idSala": sala_obj.id,
-        "nome": sala_obj.nome,
-        "capacidade": sala_obj.capacidade,
-        "predio": sala_obj.predio,
-        "andar": sala_obj.andar,
-        "status": sala_obj.status,
-        "tipoSala": sala_obj.tipo_sala,
-    }])
-
-    salas = pd.concat([salas, nova_sala], ignore_index=True)
-    _salvar_csv(salas, arquivo)
-
-    return sala_obj
+    try:
+        cursor = conexao.cursor()
+                
+        cursor.execute("""INSERT INTO salas (nome, capacidade, predio, andar, status_sala, tipo_sala)
+                       VALUES
+                       ('%s', %s, '%s', '%s', '%s', '%s');""", valores)
+        conexao.commit()
+        return True
+            
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()    
 
 
 def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicitante):
     usuarios_service.exigir_admin(id_solicitante)
 
-    arquivo = DATA_DIR / "salas.csv"
-    salas = carregar_salas()
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+                    
+        cursor.execute("SELECT id_sala FROM salas WHERE id_sala = %s;", id_sala)
+        resultado = cursor.fetchall()
+        if not resultado:
+            return False # Sala não encontrada
 
-    sala_atual = salas[salas["idSala"] == id_sala]
+        sala_obj = Sala(id_sala, nome, capacidade, predio, andar, tipo_sala)
+        sala_obj.validar_nome()
+        sala_obj.validar_capacidade()
+        sala_obj.validar_tipo_sala()
 
-    if sala_atual.empty:
-        return False  # Sala não encontrada
-
-    sala_obj = Sala(id_sala, nome, capacidade, predio, andar, sala_atual.iloc[0]["status"], tipo_sala)
-
-    sala_obj.validar_nome()
-    sala_obj.validar_capacidade()
-    sala_obj.validar_tipo_sala()
-
-    filtro = salas["idSala"] == id_sala
-    salas.loc[filtro, ["nome", "capacidade", "predio", "andar", "tipoSala"]] = [nome, capacidade, predio, andar, tipo_sala]
-
-    _salvar_csv(salas, arquivo)
-    return sala_obj
+        valores = (nome, capacidade, predio, andar, tipo_sala, id_sala)
+        
+        cursor.execute(""" UPDATE salas
+                       SET nome = '%s',
+                       capacidade = %s,
+                       predio = '%s',
+                       andar = '%s',
+                       tipo_sala = '%s'
+                       WHERE id_sala = %s;""", valores)
+        conexao.commit()
+        return True
+    
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 
 def alterar_status_sala(id_sala, novo_status, id_solicitante):
@@ -86,17 +103,29 @@ def alterar_status_sala(id_sala, novo_status, id_solicitante):
     if novo_status not in Sala.STATUS_VALIDOS:
         raise ValueError(f"Status inválido. Deve ser um dos: {', '.join(Sala.STATUS_VALIDOS)}.")
 
-    filtro = salas["idSala"] == id_sala
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT status_sala FROM salas WHERE id_sala = %s;")
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return False # Sala não encontrada
 
-    if not filtro.any():
-        return False  # Sala não encontrada
+        if resultado[0]['status_sala'] == novo_status:
+            return False # Já está nesse status
 
-    if salas.loc[filtro, "status"].iloc[0] == novo_status:
-        return False  # Já está nesse status
 
-    salas.loc[filtro, "status"] = novo_status
-    _salvar_csv(salas, arquivo)
-    return True
+        cursor.execute("UPDATE salas SET status_sala = %s WHERE id_sala = %s", novo_status, id_sala)
+        conexao.commit()
+        return True
+    
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 
 def ocultar_sala(id_sala, id_solicitante):

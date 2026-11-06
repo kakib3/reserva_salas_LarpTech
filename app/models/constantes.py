@@ -13,9 +13,10 @@ class StatusSala:
     INDISPONIVEL = "Indisponivel"
     
 class TipoSala:
-    SALA = "SALA"
-    REUNIAO = "REUNIAO"
-    LABORATORIO = "LABORATORIO"
-    AUDITORIO = "AUDITORIO"
+    SALA = "Sala"
+    REUNIAO = "Reuniao"
+    LABORATORIO = "Laboratorio"
+    AUDITORIO = "Auditorio"
     
     PRECISA_APROVACAO = (LABORATORIO, AUDITORIO)
+    

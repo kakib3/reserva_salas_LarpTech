@@ -7,7 +7,7 @@ def carregar_usuarios():
     try:
         cursor = conexao.cursor(dictionary=True)
         
-        cursor.execute("SELECT * FROM usuarios")
+        cursor.execute("SELECT * FROM usuarios;")
         
         return cursor.fetchall()
     
@@ -24,7 +24,7 @@ def carregar_salas():
     try:
         cursor = conexao.cursor(dictionary=True)
             
-        cursor.execute("SELECT * FROM salas")
+        cursor.execute("SELECT * FROM salas;")
             
         return cursor.fetchall()
         
@@ -42,7 +42,7 @@ def carregar_reservas():
     try:
         cursor = conexao.cursor(dictionary=True)
             
-        cursor.execute("SELECT * FROM reservas")
+        cursor.execute("SELECT * FROM reservas;")
             
         return cursor.fetchall()
         
@@ -59,11 +59,11 @@ def obter_reservas_da_sala(id_sala, data=None):
         cursor = conexao.cursor(dictionary=True)
 
         if data is not None:
-            sql = "SELECT * FROM reservas WHERE id_sala = %s AND data_reserva = %s"
+            sql = "SELECT * FROM reservas WHERE id_sala = %s AND data_reserva = %s;"
             valores = (id_sala, data)
 
         else:
-            sql = "SELECT * FROM reservas WHERE id_sala = %s"
+            sql = "SELECT * FROM reservas WHERE id_sala = %s;"
             valores = (id_sala)
 
         cursor.execute(sql, valores)
