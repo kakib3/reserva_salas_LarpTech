@@ -95,7 +95,9 @@ class TestSalaService(unittest.TestCase):
     def test_admin_muda_status_da_sala(self):
         resultado = sala_service.alterar_status_sala(ID_SALA, "Manutencao", self.id_admin)
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, ID_SALA)
+        self.assertEqual(resultado.status, "Manutencao")
         self.assertEqual(self._sala()["status"], "Manutencao")
 
     def test_admin_com_status_invalido_recebe_erro_de_validacao(self):
