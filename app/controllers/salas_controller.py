@@ -35,27 +35,33 @@ def mudar_status_sala(id_sala, novo_status, id_solicitante):
     if resultado is False:
         return False, "Sala não encontrada ou já está nesse status.", None
 
-    return True, f"Status da sala alterado para '{novo_status}'.", None
+    return True, f"Status da sala alterado para '{novo_status}'.", resultado
 
 
 @tratar_erro_de_dados
 def ocultar_sala(id_sala, id_solicitante):
     try:
-        sala_service.ocultar_sala(id_sala, id_solicitante)
+        resultado = sala_service.ocultar_sala(id_sala, id_solicitante)
     except PermissionError as e:
         return False, str(e), None
 
-    return True, "Sala ocultada com sucesso.", None
+    if resultado is False:
+        return False, "Sala não encontrada.", None
+
+    return True, "Sala ocultada com sucesso.", resultado
 
 
 @tratar_erro_de_dados
 def mostrar_sala(id_sala, id_solicitante):
     try:
-        sala_service.mostrar_sala(id_sala, id_solicitante)
+        resultado = sala_service.mostrar_sala(id_sala, id_solicitante)
     except PermissionError as e:
         return False, str(e), None
 
-    return True, "Sala exibida com sucesso.", None
+    if resultado is False:
+        return False, "Sala não encontrada.", None
+
+    return True, "Sala exibida com sucesso.", resultado
 
 
 @tratar_erro_de_dados
