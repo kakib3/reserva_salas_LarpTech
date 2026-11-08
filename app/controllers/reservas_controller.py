@@ -27,7 +27,7 @@ def cancelar_reserva(id_reserva, id_usuario):
     if resultado is False:
         return False, "Não foi possível cancelar: reserva não encontrada, não autorizada ou já cancelada.", None
 
-    return True, "Reserva cancelada com sucesso.", None
+    return True, "Reserva cancelada com sucesso.", resultado
 
 
 @tratar_erro_de_dados
@@ -40,7 +40,7 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     if resultado is False:
         return False, "Não foi possível alterar a reserva houve conflito de horário", None
 
-    return True, "Reserva alterada com sucesso.", None
+    return True, "Reserva alterada com sucesso.", resultado
 
 
 @tratar_erro_de_dados
@@ -61,7 +61,7 @@ def aprovar_reserva(id_reserva, id_solicitante):
     if resultado is False:
         return False, "Não foi possível aprovar: verifique se você tem permissão e se a reserva está pendente.", None
 
-    return True, "Reserva aprovada com sucesso.", None
+    return True, "Reserva aprovada com sucesso.", resultado
 
 
 @tratar_erro_de_dados
@@ -71,4 +71,4 @@ def negar_reserva(id_reserva, id_solicitante):
     if resultado is False:
         return False, "Não foi possível negar: reserva não encontrada ou não está pendente.", None
 
-    return True, "Reserva negada com sucesso.", None
+    return True, "Reserva negada com sucesso.", resultado
