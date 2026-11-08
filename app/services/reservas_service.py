@@ -1,3 +1,10 @@
+"""Serviço de reservas.
+
+Contrato das operações de escrita: dados inválidos lançam ValueError;
+regras de estado impeditivas retornam False; sucesso retorna Reserva.
+Consultas e predicados preservam seus retornos naturais.
+"""
+
 import pandas as pd
 
 from app.models.dados import DATA_DIR
@@ -50,6 +57,7 @@ def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_
     return not reservas[mesma_sala_e_data & sobreposicao].empty
 
 def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
+    """Cria uma reserva; retorna Reserva, False para estado impeditivo ou ValueError para dados inválidos."""
     if not usuarios_service.checar_usuario_ativo(id_usuario):
         return False  # usuário inexistente ou inativo
     arquivo = DATA_DIR / "reservas.csv"
@@ -93,6 +101,7 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     return reserva_obj
 
 def cancelar_reserva(id_reserva,id_usuario):
+    """Cancela e retorna a Reserva atualizada; False se a operação for impedida pelo estado."""
     if not usuarios_service.checar_usuario_ativo(id_usuario):
         return False  # usuário inexistente ou inativo
     arquivo = DATA_DIR / "reservas.csv"
@@ -111,9 +120,11 @@ def cancelar_reserva(id_reserva,id_usuario):
     
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
     _salvar_csv(reservas, arquivo)
-    return True
+    linha = reservas[reservas["idReserva"] == id_reserva].iloc[0]
+    return Reserva(int(linha["idReserva"]), int(linha["idUser"]), int(linha["idSala"]), pd.to_datetime(linha["data"], format="%d/%m/%Y").date(), pd.to_datetime(linha["horaInicio"], format="mixed").time(), pd.to_datetime(linha["horaFim"], format="mixed").time(), linha["status"], pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date())
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
+    """Altera e retorna a Reserva atualizada; False para estado impeditivo; ValueError para dados inválidos."""
     if not usuarios_service.checar_usuario_ativo(id_usuario):
         return False  # usuário inexistente ou inativo
     arquivo = DATA_DIR / "reservas.csv"
@@ -150,7 +161,7 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
     
     _salvar_csv(reservas, arquivo)
-    return True
+    return reserva_obj
 
 #Métodos Utilitários
 def descobre_tipo_sala(id_sala):
@@ -177,6 +188,7 @@ def _definir_status_reserva(id_sala):
     return None
 
 def aprovar_reserva(id_reserva, id_usuario):
+    """Aprova e retorna a Reserva atualizada ou False se permissão/estado impedir."""
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
 
@@ -199,9 +211,11 @@ def aprovar_reserva(id_reserva, id_usuario):
 
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CONFIRMADA
     _salvar_csv(reservas, arquivo)
-    return True
+    linha = reservas[reservas["idReserva"] == id_reserva].iloc[0]
+    return Reserva(int(linha["idReserva"]), int(linha["idUser"]), int(linha["idSala"]), pd.to_datetime(linha["data"], format="%d/%m/%Y").date(), pd.to_datetime(linha["horaInicio"], format="mixed").time(), pd.to_datetime(linha["horaFim"], format="mixed").time(), linha["status"], pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date())
 
 def negar_reserva(id_reserva, id_usuario):
+    """Nega e retorna a Reserva atualizada ou False se permissão/estado impedir."""
     arquivo = DATA_DIR / "reservas.csv"
     reservas = carregar_reservas()
 
@@ -218,4 +232,5 @@ def negar_reserva(id_reserva, id_usuario):
 
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
     _salvar_csv(reservas, arquivo)
-    return True
+    linha = reservas[reservas["idReserva"] == id_reserva].iloc[0]
+    return Reserva(int(linha["idReserva"]), int(linha["idUser"]), int(linha["idSala"]), pd.to_datetime(linha["data"], format="%d/%m/%Y").date(), pd.to_datetime(linha["horaInicio"], format="mixed").time(), pd.to_datetime(linha["horaFim"], format="mixed").time(), linha["status"], pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date())
