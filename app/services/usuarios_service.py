@@ -1,3 +1,10 @@
+"""Serviço de usuários.
+
+Contrato das operações de escrita: dados inválidos lançam ValueError;
+regras de estado impeditivas retornam False; sucesso retorna Usuario.
+Consultas, autenticação e predicados preservam seus retornos naturais.
+"""
+
 import pandas as pd
 
 from app.models.dados import DATA_DIR, carregar_usuarios, _salvar_csv
@@ -44,6 +51,7 @@ def verificar_email_disponivel(email, id_usuario_ignorar=None):
 
 
 def criar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
+    """Cria e retorna Usuario; False para email duplicado; ValueError para dados inválidos."""
     
     if role == "Admin":
         exigir_admin(id_solicitante)
@@ -86,6 +94,7 @@ def autenticar_usuario(email, senha):
     return usuario
 
 def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
+    """Altera e retorna Usuario; False para usuário ausente/email duplicado; exceções para dados/permissões inválidos."""
     eh_admin = checar_admin(id_solicitante)
     
     if id_solicitante != id_usuario and not eh_admin:
@@ -124,6 +133,7 @@ def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
     return usuario_obj
 
 def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
+    """Altera e retorna Usuario; False se usuário/senha atual não conferirem; ValueError para nova senha inválida."""
     if id_solicitante != id_usuario:
         raise PermissionError("Você só pode alterar a sua própria senha.")
 
@@ -143,9 +153,10 @@ def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
 
     usuarios.loc[usuarios["idUser"] == id_usuario, "senha"] = nova_senha
     _salvar_csv(usuarios, arquivo)
-    return True
+    return usuario_obj
 
 def desativar_usuario(id_solicitante, id_usuario):
+    """Desativa e retorna Usuario atualizado; False se inexistente ou já inativo."""
     exigir_admin(id_solicitante)
     
     if id_solicitante == id_usuario:
@@ -164,7 +175,8 @@ def desativar_usuario(id_solicitante, id_usuario):
     
     usuarios.loc[filtro, "status"] = "Inativo"
     _salvar_csv(usuarios, arquivo)
-    return True
+    linha = usuarios.loc[filtro].iloc[0]
+    return Usuario(linha["idUser"], linha["nome"], linha["email"], linha["telefone"], linha["role"], linha["senha"], linha["status"])
 
 def checar_admin(id_usuario):
     usuario = buscar_usuario_por_id(id_usuario)
