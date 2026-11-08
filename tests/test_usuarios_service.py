@@ -172,7 +172,9 @@ class TestAutorizacaoUsuarios(BaseUsuariosTest):
             self.id_comum, self.id_comum, self.comum["senha"], SENHA_TESTE
         )
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, self.id_comum)
+        self.assertEqual(resultado.senha, SENHA_TESTE)
 
     def test_admin_lista_usuarios_sem_senha(self):
         usuarios = usuarios_service.listar_usuarios(self.id_admin)
@@ -187,7 +189,9 @@ class TestAutorizacaoUsuarios(BaseUsuariosTest):
     def test_admin_desativa_usuario_comum(self):
         resultado = usuarios_service.desativar_usuario(self.id_admin, self.id_comum)
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, self.id_comum)
+        self.assertEqual(resultado.status, "Inativo")
         self.assertEqual(_campo_usuario(self.id_comum, "status"), "Inativo")
 
     # --- usuário inativo --------------------------------------------------
