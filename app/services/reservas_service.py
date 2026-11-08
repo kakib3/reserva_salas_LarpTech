@@ -1,26 +1,44 @@
 import pandas as pd
-
+from app.models.conexao import conectar_banco
 from app.models.dados import DATA_DIR
 from app.models.reserva import Reserva
 from datetime import date
 from app.models.dados import carregar_salas
 from app.models.dados import carregar_reservas
-from app.models.dados import _salvar_csv
 from app.services import usuarios_service
 from app.models.constantes import StatusReserva, StatusSala, TipoSala
 
 def verificar_sala_disponivel(id_sala):
-    salas = carregar_salas()
-
-    sala = salas[salas["idSala"] == id_sala]
-
-    if sala.empty:
-        return False
-
-    return sala.iloc[0]["status"] == StatusSala.DISPONIVEL
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT status_sala FROM salas WHERE id_sala = %s", id_sala)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return False
+        return resultado[0]['status_sala'] == StatusSala.DISPONIVEL
+    
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
-    reservas = carregar_reservas()
+    
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        reservas = carregar_reservas()
+        
+    
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
     
     reservas["data"] = pd.to_datetime(
         reservas["data"],
@@ -90,6 +108,22 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     nova_linha = pd.DataFrame([nova_reserva])
     reservas = pd.concat([reservas, nova_linha], ignore_index=True)
     _salvar_csv(reservas, arquivo)
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT status_sala FROM salas WHERE id_sala = %s", id_sala)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return False
+        return resultado[0]['status_sala'] == StatusSala.DISPONIVEL
+    
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
     return reserva_obj
 
 def cancelar_reserva(id_reserva,id_usuario):

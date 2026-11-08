@@ -1,75 +1,102 @@
 import pandas as pd
-
+from app.models.conexao import conectar_banco
 from app.models.dados import DATA_DIR, carregar_usuarios, _salvar_csv
 from app.models.usuario import Usuario
 
 
 def listar_usuarios(id_solicitante):
     exigir_admin(id_solicitante)
-    return carregar_usuarios().drop(columns=["senha"])
+    return carregar_usuarios()
 
 
 def buscar_usuario_por_id(id_usuario):
-    usuarios = carregar_usuarios()
-    usuario = usuarios[usuarios["idUser"] == id_usuario]
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM usuarios WHERE id_usuario = %s", id_usuario)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return None
 
-    if usuario.empty:
-        return None
-
-    usuario = usuario.iloc[0]
-
-    return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])
+        return Usuario(resultado['id_usuario'], resultado['nome'], resultado['email'], resultado['telefone'], resultado['papel'], resultado['senha'], resultado['status_usuario'])
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 def buscar_usuario_por_email(email):
-    usuarios = carregar_usuarios()
-    usuario = usuarios[usuarios["email"] == email]
+    conexao = conectar_banco()
+    cursor = None
+        
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM usuarios WHERE email = %s", email)
+        resultado = cursor.fetchall()
+            
+        if not resultado:
+            return None
 
-    if usuario.empty:
-        return None
+        return Usuario(resultado['id_usuario'], resultado['nome'], resultado['email'], resultado['telefone'], resultado['papel'], resultado['senha'], resultado['status_usuario'])
+    
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
-    usuario = usuario.iloc[0]
+def verificar_email_disponivel(email):
 
-    return Usuario(usuario["idUser"], usuario["nome"], usuario["email"], usuario["telefone"], usuario["role"], usuario["senha"], usuario["status"])
-
-
-def verificar_email_disponivel(email, id_usuario_ignorar=None):
-    usuarios = carregar_usuarios()
-
-    mesmo_email = usuarios["email"] == email
-
-    if id_usuario_ignorar is not None:
-        mesmo_email &= usuarios["idUser"] != id_usuario_ignorar
-
-    return usuarios[mesmo_email].empty
-
+    conexao = conectar_banco()
+    cursor = None
+        
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT email FROM usuarios WHERE email = %s", email)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return True
+        else:
+            return False
+        
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 def criar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
     
     if role == "Admin":
         exigir_admin(id_solicitante)
-    arquivo = DATA_DIR / "usuarios.csv"
-
-    usuario_obj = Usuario(None, nome, email, telefone, role, senha)
-
-    usuario_obj.validar_nome()
-    usuario_obj.validar_email()
-    usuario_obj.validar_telefone()
-    usuario_obj.validar_role()
-    usuario_obj.validar_senha()
-
-    if not verificar_email_disponivel(email):
-        return False
-
-    usuarios = carregar_usuarios()
-    novo_id = 1 if usuarios.empty else int(usuarios["idUser"].max()) + 1
-
-    novo_usuario = pd.DataFrame([{"idUser": novo_id, "nome": nome, "email": email, "telefone": telefone, "role": role, "senha": senha, "status": "Ativo"}])
-
-    usuarios = pd.concat([usuarios, novo_usuario], ignore_index=True)
-    _salvar_csv(usuarios, arquivo)
-
-    return Usuario(novo_id, nome, email, telefone, role, senha, "Ativo")
-
+    conexao = conectar_banco()
+    cursor = None
+            
+    try:
+        usuario_obj = Usuario(nome, email, telefone, role, senha)
+        
+        usuario_obj.validar_nome()
+        usuario_obj.validar_email()
+        usuario_obj.validar_telefone()
+        usuario_obj.validar_role()
+        usuario_obj.validar_senha()
+        
+        if not verificar_email_disponivel(email):
+                return False
+        
+        valores = (usuario_obj.nome, usuario_obj.email, usuario_obj.telefone, usuario_obj.role, usuario_obj.senha, usuario_obj.status)
+        
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("""INSERT INTO usuarios (nome, email, telefone, papel, senha, status_usuario)
+                        VALUES
+                        (%s, %s, %s, %s, %s, %s)""", valores)
+        cursor.commit()
+        
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
 
 def autenticar_usuario(email, senha):
     usuario = buscar_usuario_por_email(email)
@@ -91,38 +118,51 @@ def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
     if id_solicitante != id_usuario and not eh_admin:
         raise PermissionError("Você só pode editar os seus próprios dados.")
 
-    arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = carregar_usuarios()
+    conexao = conectar_banco()
+    cursor = None
+        
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM usuarios WHERE id_usuario = %s", id_usuario)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return False
     
-    usuario_atual = usuarios[usuarios["idUser"] == id_usuario]
+        usuario_atual = resultado[0]
+        role_atual = usuario_atual['papel']
+        if role != role_atual:
+            if not eh_admin:
+                raise PermissionError("Apenas administradores podem alterar o perfil.")
+            if role_atual == "Admin" and eh_ultimo_admin(id_usuario):
+                raise ValueError("Não é possível rebaixar o último administrador.")
+            
+        usuario_obj = Usuario(id_usuario, nome, email, telefone, role, usuario_atual['senha'], usuario_atual['status_usuario'])
+        
+        usuario_obj.validar_nome()
+        usuario_obj.validar_email()
+        usuario_obj.validar_telefone()
+        usuario_obj.validar_role()
+            
+        if not verificar_email_disponivel(email, id_usuario_ignorar=id_usuario):
+            return False  
+           
+        valores = (nome, email, telefone, role, id_usuario)
+           
+        cursor.execute("""UPDATE usuarios
+                       SET nome = %s,
+                       email = %s,
+                       telefone = %s,
+                       papel = %s
+                       WHERE id_usuario = %s""", valores)
+        cursor.commit()
+        return usuario_obj
     
-    if usuario_atual.empty:
-        return False
+    finally:
+        if cursor is not None:
+            cursor.close()
+            conexao.close()
     
-    role_atual = usuario_atual.iloc[0]["role"]
-    if role != role_atual:
-        if not eh_admin:
-            raise PermissionError("Apenas administradores podem alterar o perfil.")
-        if role_atual == "Admin" and eh_ultimo_admin(id_usuario):
-            raise ValueError("Não é possível rebaixar o último administrador.")
-
-    
-    usuario_obj = Usuario(id_usuario, nome, email, telefone, role, usuario_atual.iloc[0]["senha"], usuario_atual.iloc[0]["status"])
-
-    usuario_obj.validar_nome()
-    usuario_obj.validar_email()
-    usuario_obj.validar_telefone()
-    usuario_obj.validar_role()
-    
-    if not verificar_email_disponivel(email, id_usuario_ignorar=id_usuario):
-        return False 
-    
-    filtro = usuarios["idUser"] == id_usuario
-    usuarios.loc[filtro, ["nome", "email", "telefone", "role"]] = [nome, email, telefone, role]
-
-    _salvar_csv(usuarios, arquivo)
-    return usuario_obj
-
 def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
     if id_solicitante != id_usuario:
         raise PermissionError("Você só pode alterar a sua própria senha.")

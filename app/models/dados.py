@@ -7,14 +7,20 @@ def carregar_usuarios():
     try:
         cursor = conexao.cursor(dictionary=True)
         
-        cursor.execute("SELECT * FROM usuarios;")
+        cursor.execute("""SELECT id_usuario,
+                       nome,
+                       email,
+                       telefone,
+                       papel,
+                       status_usuario
+                       FROM usuarios""")
         
         return cursor.fetchall()
     
     finally:
         if cursor is not None:
             cursor.close()
-        conexao.close()
+            conexao.close()
 
 def carregar_salas():
     
@@ -31,7 +37,7 @@ def carregar_salas():
     finally:
         if cursor is not None:
             cursor.close()
-        conexao.close()
+            conexao.close()
 
 
 def carregar_reservas():
@@ -49,7 +55,7 @@ def carregar_reservas():
     finally:
         if cursor is not None:
             cursor.close()
-        conexao.close()
+            conexao.close()
 
 def obter_reservas_da_sala(id_sala, data=None):
     conexao = conectar_banco()
@@ -72,4 +78,4 @@ def obter_reservas_da_sala(id_sala, data=None):
     finally:
         if cursor is not None:
             cursor.close()
-        conexao.close()
+            conexao.close()
