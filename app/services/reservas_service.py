@@ -16,6 +16,19 @@ from app.models.dados import _salvar_csv
 from app.services import usuarios_service
 from app.models.constantes import StatusReserva, StatusSala, TipoSala
 
+def _reserva_da_linha(linha):
+    """Converte uma linha do CSV em uma entidade Reserva completa."""
+    return Reserva(
+        int(linha["idReserva"]),
+        int(linha["idUser"]),
+        int(linha["idSala"]),
+        pd.to_datetime(linha["data"], format="%d/%m/%Y").date(),
+        pd.to_datetime(linha["horaInicio"], format="mixed").time(),
+        pd.to_datetime(linha["horaFim"], format="mixed").time(),
+        linha["status"],
+        pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date(),
+    )
+
 def verificar_sala_disponivel(id_sala):
     salas = carregar_salas()
 
@@ -120,8 +133,7 @@ def cancelar_reserva(id_reserva,id_usuario):
     
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
     _salvar_csv(reservas, arquivo)
-    linha = reservas[reservas["idReserva"] == id_reserva].iloc[0]
-    return Reserva(int(linha["idReserva"]), int(linha["idUser"]), int(linha["idSala"]), pd.to_datetime(linha["data"], format="%d/%m/%Y").date(), pd.to_datetime(linha["horaInicio"], format="mixed").time(), pd.to_datetime(linha["horaFim"], format="mixed").time(), linha["status"], pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date())
+    return _reserva_da_linha(reservas[reservas["idReserva"] == id_reserva].iloc[0])
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
     """Altera e retorna a Reserva atualizada; False para estado impeditivo; ValueError para dados inválidos."""
@@ -144,7 +156,8 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     if not verificar_sala_disponivel(nova_sala):
         return False  # Sala indisponível
     
-    reserva_obj = Reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim, reserva.iloc[0]["status"], None)
+    criado_em = pd.to_datetime(reserva.iloc[0]["criado_em"], format="%d/%m/%Y").date()
+    reserva_obj = Reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim, reserva.iloc[0]["status"], criado_em)
     
     _validar_reserva(reserva_obj)
     
@@ -211,8 +224,7 @@ def aprovar_reserva(id_reserva, id_usuario):
 
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CONFIRMADA
     _salvar_csv(reservas, arquivo)
-    linha = reservas[reservas["idReserva"] == id_reserva].iloc[0]
-    return Reserva(int(linha["idReserva"]), int(linha["idUser"]), int(linha["idSala"]), pd.to_datetime(linha["data"], format="%d/%m/%Y").date(), pd.to_datetime(linha["horaInicio"], format="mixed").time(), pd.to_datetime(linha["horaFim"], format="mixed").time(), linha["status"], pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date())
+    return _reserva_da_linha(reservas[reservas["idReserva"] == id_reserva].iloc[0])
 
 def negar_reserva(id_reserva, id_usuario):
     """Nega e retorna a Reserva atualizada ou False se permissão/estado impedir."""
@@ -232,5 +244,4 @@ def negar_reserva(id_reserva, id_usuario):
 
     reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
     _salvar_csv(reservas, arquivo)
-    linha = reservas[reservas["idReserva"] == id_reserva].iloc[0]
-    return Reserva(int(linha["idReserva"]), int(linha["idUser"]), int(linha["idSala"]), pd.to_datetime(linha["data"], format="%d/%m/%Y").date(), pd.to_datetime(linha["horaInicio"], format="mixed").time(), pd.to_datetime(linha["horaFim"], format="mixed").time(), linha["status"], pd.to_datetime(linha["criado_em"], format="%d/%m/%Y").date())
+    return _reserva_da_linha(reservas[reservas["idReserva"] == id_reserva].iloc[0])
