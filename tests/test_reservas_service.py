@@ -296,12 +296,16 @@ class TestCancelarReserva(unittest.TestCase):
     def test_cancelar_propria_reserva_confirmada(self):
         resultado = cancelar_reserva(1, 4)
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, 1)
+        self.assertEqual(resultado.status, "Cancelada")
 
     def test_cancelar_propria_reserva_pendente(self):
         resultado = cancelar_reserva(8, 7)
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, 8)
+        self.assertEqual(resultado.status, "Cancelada")
 
     def test_cancelar_reserva_de_outro_usuario(self):
         resultado = cancelar_reserva(1, 7)
@@ -387,7 +391,9 @@ class TestAlterarReserva(unittest.TestCase):
             time(21, 0)
         )
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, 1)
+        self.assertEqual(resultado.status, "Pendente")
 
         reservas = pd.read_csv(self.arquivo_reservas, sep=";")
         reserva = reservas[reservas["idReserva"] == 1]
@@ -404,7 +410,9 @@ class TestAlterarReserva(unittest.TestCase):
             time(21, 0)
         )
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, 8)
+        self.assertEqual(resultado.status, "Confirmada")
 
         reservas = pd.read_csv(self.arquivo_reservas, sep=";")
         reserva = reservas[reservas["idReserva"] == 8]
@@ -460,7 +468,9 @@ class TestAprovarNegarReserva(BaseAutorizacaoTest):
     def test_admin_aprova_reserva_pendente(self):
         resultado = aprovar_reserva(self.pendente, self.id_admin)
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, self.pendente)
+        self.assertEqual(resultado.status, "Confirmada")
         self.assertEqual(_status_reserva(self.pendente), "Confirmada")
 
     def test_admin_nao_aprova_quando_sala_muda_para_indisponivel(self):
@@ -486,7 +496,9 @@ class TestAprovarNegarReserva(BaseAutorizacaoTest):
     def test_admin_nega_reserva_pendente(self):
         resultado = negar_reserva(self.pendente, self.id_admin)
 
-        self.assertTrue(resultado)
+        self.assertIsNot(resultado, False)
+        self.assertEqual(resultado.id, self.pendente)
+        self.assertEqual(resultado.status, "Cancelada")
         self.assertEqual(_status_reserva(self.pendente), "Cancelada")
 
     def test_admin_nao_aprova_reserva_ja_confirmada(self):
