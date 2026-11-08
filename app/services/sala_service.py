@@ -1,3 +1,10 @@
+"""Serviço de salas.
+
+Contrato das operações de escrita: dados inválidos lançam ValueError;
+regras de estado impeditivas retornam False; sucesso retorna Sala.
+Consultas e predicados preservam seus retornos naturais.
+"""
+
 import pandas as pd
 
 from app.models.dados import DATA_DIR, carregar_salas, _salvar_csv
@@ -22,6 +29,7 @@ def buscar_sala_por_id(id_sala):
 
 
 def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitante):
+    """Cria e retorna Sala; dados inválidos geram ValueError."""
     usuarios_service.exigir_admin(id_solicitante)  # PermissionError se não for Admin ativo
 
     arquivo = DATA_DIR / "salas.csv"
@@ -54,6 +62,7 @@ def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitant
 
 
 def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicitante):
+    """Altera e retorna Sala; False se a sala não existir."""
     usuarios_service.exigir_admin(id_solicitante)
 
     arquivo = DATA_DIR / "salas.csv"
@@ -78,6 +87,7 @@ def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicit
 
 
 def alterar_status_sala(id_sala, novo_status, id_solicitante):
+    """Altera e retorna Sala; False para sala inexistente/estado igual; ValueError para status inválido."""
     usuarios_service.exigir_admin(id_solicitante)
 
     arquivo = DATA_DIR / "salas.csv"
@@ -96,14 +106,24 @@ def alterar_status_sala(id_sala, novo_status, id_solicitante):
 
     salas.loc[filtro, "status"] = novo_status
     _salvar_csv(salas, arquivo)
-    return True
+    return buscar_sala_por_id(id_sala)
 
 
 def ocultar_sala(id_sala, id_solicitante):
+    """Oculta e retorna Sala; False se a sala não existir."""
     usuarios_service.exigir_admin(id_solicitante)
+    sala = buscar_sala_por_id(id_sala)
+    if sala is None:
+        return False
     salas_ocultas.ocultar_sala(id_sala)
+    return sala
 
 
 def mostrar_sala(id_sala, id_solicitante):
+    """Exibe e retorna Sala; False se a sala não existir."""
     usuarios_service.exigir_admin(id_solicitante)
+    sala = buscar_sala_por_id(id_sala)
+    if sala is None:
+        return False
     salas_ocultas.mostrar_sala(id_sala)
+    return sala
