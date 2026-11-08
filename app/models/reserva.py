@@ -32,5 +32,7 @@ class Reserva:
             raise ValueError(f"Horário de reservas: {hora_abertura.strftime('%H:%M')} às {hora_fechamento.strftime('%H:%M')}.")
 
     def validar_dia_util(self):
+        if not isinstance(self.data, date):
+            raise ValueError("A data da reserva deve ser um objeto do tipo 'date'.")
         if self.data.weekday() > 5:
             raise ValueError("As reservas só podem ser feitas em dias úteis e em sábados letivos.")
