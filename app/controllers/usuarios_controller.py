@@ -44,7 +44,7 @@ def trocar_senha(id_usuario, senha_atual, nova_senha, id_solicitante):
     if resultado is False:
         return False, "Usuário não encontrado ou senha atual incorreta.", None
 
-    return True, "Senha alterada com sucesso.", None
+    return True, "Senha alterada com sucesso.", resultado
 
 @tratar_erro_de_dados
 def desativar_usuario(id_usuario, id_solicitante):
@@ -56,7 +56,7 @@ def desativar_usuario(id_usuario, id_solicitante):
     if resultado is False:
         return False, "Usuário não encontrado ou já está inativo.", None
 
-    return True, "Usuário desativado com sucesso.", None
+    return True, "Usuário desativado com sucesso.", resultado
 
 @tratar_erro_de_dados
 def obter_usuario(id_usuario, id_solicitante):
