@@ -167,23 +167,35 @@ def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
     if id_solicitante != id_usuario:
         raise PermissionError("Você só pode alterar a sua própria senha.")
 
-    arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = carregar_usuarios()
+    conexao = conectar_banco()
+    cursor = None
     
-    usuario_atual =  usuarios[usuarios["idUser"] == id_usuario]
-    
-    if usuario_atual.empty:
-        return False
-    
-    if usuario_atual.iloc[0]["senha"] != senha_atual:
-        return False
-    
-    usuario_obj = Usuario(id_usuario, usuario_atual.iloc[0]["nome"], usuario_atual.iloc[0]["email"], usuario_atual.iloc[0]["telefone"], usuario_atual.iloc[0]["role"], nova_senha, usuario_atual.iloc[0]["status"])
-    usuario_obj.validar_senha()
-
-    usuarios.loc[usuarios["idUser"] == id_usuario, "senha"] = nova_senha
-    _salvar_csv(usuarios, arquivo)
-    return True
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM usuarios WHERE id_usuario = %s", id_usuario)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return False
+        
+        usuario_atual = resultado
+        
+        if usuario_atual['senha'] != senha_atual:
+            return False
+        
+        usuario_obj = Usuario(id_usuario, usuario_atual['nome'], usuario_atual['email'], usuario_atual['telefone'], usuario_atual['papel'], nova_senha, usuario_atual['status_usuario'])
+        usuario_obj.validar_senha()
+        
+        valores = (nova_senha, id_usuario)
+        
+        cursor.execute("UPDATE usuarios SET senha = %s WHERE id_usuario = %s", valores)
+        cursor.commit()
+        
+        return True
+    finally:
+        cursor.close()
+        conexao.close()
+        
 
 def desativar_usuario(id_solicitante, id_usuario):
     exigir_admin(id_solicitante)
@@ -191,20 +203,30 @@ def desativar_usuario(id_solicitante, id_usuario):
     if id_solicitante == id_usuario:
         raise ValueError("Administradores não podem desativar a si mesmos.")
     
-    arquivo = DATA_DIR / "usuarios.csv"
-    usuarios = carregar_usuarios()
+    conexao = conectar_banco()
+    cursor = None
     
-    filtro = usuarios["idUser"] == id_usuario
+    try:
+        cursor = conexao.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE id_usuario = %s", id_usuario)
+        resultado = cursor.fetchall()
+        
+        if not resultado:
+            return False
+        
+        if resultado[0]['status_usuario'] == "Inativo":
+            return False
+        
+        valores = ("Inativo", id_usuario)        
+        
+        cursor.execute("UPDATE usuarios SET papel = %s WHERE id_usuario = %s", valores)
+        cursor.commit()
+        return True
     
-    if not filtro.any():
-        return False
-    
-    if usuarios.loc[filtro, "status"].iloc[0] == "Inativo":
-        return False
-    
-    usuarios.loc[filtro, "status"] = "Inativo"
-    _salvar_csv(usuarios, arquivo)
-    return True
+    finally:
+        cursor.close()
+        conexao.close()
+ 
 
 def checar_admin(id_usuario):
     usuario = buscar_usuario_por_id(id_usuario)
@@ -215,9 +237,18 @@ def exigir_admin(id_solicitante):
         raise PermissionError("Ação não permitida. Apenas administradores podem realizar esta operação.")
     
 def eh_ultimo_admin(id_usuario):
-    usuarios = carregar_usuarios()
-    admins = usuarios[(usuarios["role"] == "Admin") & (usuarios["status"] != "Inativo")]
-    return len(admins) == 1 and admins.iloc[0]["idUser"] == id_usuario
+    conexao = conectar_banco()
+    cursor = None
+    
+    try:
+        cursor = conexao.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE papel = 'Admin' AND status_usuario = 'Ativo'")
+        admins = cursor.fetchall()
+        return len(admins) == 1 and admins.iloc[0]["idUser"] == id_usuario
+    
+    finally:
+        cursor.close()
+        conexao.close()
 
 def obter_usuario(id_solicitante, id_usuario):
     if id_solicitante != id_usuario and not checar_admin(id_solicitante):
