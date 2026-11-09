@@ -26,6 +26,10 @@ def _falha(*args, **kwargs):
 def test_controller_converte_erro_de_dados(monkeypatch, controller, funcao_service, chamada):
     service = getattr(controller, "reservas_service", None) or getattr(controller, "usuarios_service")
     monkeypatch.setattr(service, funcao_service, _falha)
+
+    if controller is reservas_controller and funcao_service == "aprovar_reserva":
+        monkeypatch.setattr(reservas_controller.usuarios_service, "checar_admin", lambda _id: True)
+
     assert chamada(controller) == (False, MSG, None)
 
 
