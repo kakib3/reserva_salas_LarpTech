@@ -19,6 +19,7 @@ def verificar_sala_disponivel(id_sala):
         
         if not resultado:
             return False
+        
         return resultado[0]['status_sala'] == StatusSala.DISPONIVEL
     
     finally:
@@ -32,9 +33,20 @@ def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_
     cursor = None
     
     try:
-        reservas = carregar_reservas()
+        cursor = conexao.cursor()
+        valores = (id_sala, data, hora_fim, hora_inicio)
+        cursor.execute("SELECT * FROM reservas WHERE id_sala = %s AND data_reserva = %s AND hora_inicio < %s" AND hora_fim > %s, valores)
+        resultado = cursor.fetchall()
         
-    
+        if not resultado:
+            return False
+        
+        if resultado[0]['status_reserva'] == StatusReserva.CANCELADA:
+            return False
+        
+        
+
+        
     finally:
         if cursor is not None:
             cursor.close()
