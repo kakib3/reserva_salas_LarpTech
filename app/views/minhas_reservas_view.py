@@ -43,7 +43,7 @@ def render():
             st.write(f"Hora: {reserva['horaInicio']} às {reserva['horaFim']}")
             st.write(f"Status: {reserva['status']}")
 
-            if reserva["status"] in [StatusReserva.ATIVAS]:
+            if reserva["status"] in StatusReserva.ATIVAS:
                 col_cancelar, col_alterar = st.columns(2)
 
                 with col_cancelar:
