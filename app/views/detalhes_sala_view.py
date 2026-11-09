@@ -46,7 +46,7 @@ def render():
 
     # Reservas confirmadas e pendentes ocupam horários
     reservas = reservas[
-        reservas["status"].isin(["Confirmada", "Pendente"])
+        reservas["status"].isin(StatusReserva.ATIVAS)
     ].copy()
 
     # Converte os formatos de data e horário
@@ -66,10 +66,10 @@ def render():
             format="mixed"
         ).dt.time
 
-        # Filtra as reservas da data escolhida
-        reservas = reservas[
-            reservas["data"] == data_consulta
-        ].sort_values("horaInicio")
+    # Filtra as reservas da data escolhida
+    reservas = reservas[
+        reservas["data"] == data_consulta
+    ].sort_values("horaInicio")
 
     st.write(f"Disponibilidade em: {data_consulta.strftime('%d/%m/%Y')}")
 
@@ -79,13 +79,13 @@ def render():
     else:
         usuarios = carregar_usuarios()
 
-        reservas = reservas.merge(
+        reservas_com_usuarios = reservas.merge(
             usuarios[["idUser", "nome"]],
             on="idUser",
             how="left"
         )
 
-        tabela = reservas[
+        tabela = reservas_com_usuarios[
             ["nome", "horaInicio", "horaFim", "status"]
         ].rename(columns={
             "nome": "Usuário",
