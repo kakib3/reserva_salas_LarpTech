@@ -2,7 +2,7 @@
 import logging
 
 from app.messaging.email_sender import enviar_email
-from app.services import usuarios_service, salas_service
+from app.services import usuarios_service, sala_service
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ def _notificar_reserva(reserva, assunto: str, situacao: str, orientacao: str) ->
     Monta os dados da reserva e encaminha a notificação.
     """
 
-    sala = salas_service.buscar_sala_por_id(reserva.sala_id)
+    sala = sala_service.buscar_sala_por_id(reserva.sala_id)
 
     if sala is None:
         logger.warning(
