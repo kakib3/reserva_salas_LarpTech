@@ -1,5 +1,3 @@
-import streamlit as st
-
 class StatusReserva:
     CONFIRMADA = "Confirmada"
     PENDENTE = "Pendente"

@@ -332,10 +332,10 @@ def eh_ultimo_admin(id_usuario):
     cursor = None
     
     try:
-        cursor = conexao.cursor()
+        cursor = conexao.cursor(dictionary=True)
         cursor.execute("SELECT id_usuario FROM usuarios WHERE papel = 'Admin' AND status_usuario = 'Ativo'")
         admins = cursor.fetchall()
-        return len(admins) == 1 and admins[0]["idUser"] == id_usuario
+        return len(admins) == 1 and admins[0]["id_usuario"] == id_usuario
     
     finally:
         if cursor is not None:
