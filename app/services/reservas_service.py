@@ -1,164 +1,280 @@
-import pandas as pd
-
-from app.models.dados import DATA_DIR
+from app.models.conexao import conectar_banco
 from app.models.reserva import Reserva
 from datetime import date
-from app.models.dados import carregar_salas
-from app.models.dados import carregar_reservas
-from app.models.dados import _salvar_csv
 from app.services import usuarios_service
 from app.models.constantes import StatusReserva, StatusSala, TipoSala
+import logging
+from app.messaging import notificacoes_service
+
+logger = logging.getLogger(__name__)
 
 def verificar_sala_disponivel(id_sala):
-    salas = carregar_salas()
+    conexao = conectar_banco()
+    cursor = None
 
-    sala = salas[salas["idSala"] == id_sala]
+    try:
+        cursor = conexao.cursor(dictionary=True)
 
-    if sala.empty:
-        return False
+        cursor.execute(
+            "SELECT status_sala FROM salas WHERE id_sala = %s",
+            (id_sala,)
+        )
+        resultado = cursor.fetchone()
 
-    return sala.iloc[0]["status"] == StatusSala.DISPONIVEL
+        if not resultado:
+            return False
+
+        return resultado["status_sala"] == StatusSala.DISPONIVEL
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
 
 def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
-    reservas = carregar_reservas()
     
-    reservas["data"] = pd.to_datetime(
-        reservas["data"],
-        format="%d/%m/%Y"
-    ).dt.date
-    
-    reservas["horaInicio"] = pd.to_datetime(
-        reservas["horaInicio"],
-        format="mixed"
-    ).dt.time
+    conexao = conectar_banco()
+    cursor = None
 
-    reservas["horaFim"] = pd.to_datetime(
-        reservas["horaFim"],
-        format="mixed"
-    ).dt.time
+    try:
+        cursor = conexao.cursor(dictionary=True)
 
-    mesma_sala_e_data = (
-        (reservas["idSala"] == id_sala)
-        & (reservas["data"] == data) 
-        & (reservas["status"].isin(StatusReserva.ATIVAS))
-    )
-    sobreposicao = (reservas["horaInicio"] < hora_fim) & (reservas["horaFim"] > hora_inicio)
+        sql = """SELECT id_reserva FROM reservas
+                 WHERE id_sala = %s
+                 AND data_reserva = %s
+                 AND status_reserva IN (%s, %s)
+                 AND hora_inicio < %s
+                 AND hora_fim > %s"""
 
-    if id_reserva_ignorar is not None:
-        mesma_sala_e_data &= reservas["idReserva"] != id_reserva_ignorar
+        valores = (
+            id_sala, data,
+            StatusReserva.CONFIRMADA,
+            StatusReserva.PENDENTE,
+            hora_fim, hora_inicio
+        )
 
-    return not reservas[mesma_sala_e_data & sobreposicao].empty
+        if id_reserva_ignorar is not None:
+            sql += " AND id_reserva != %s"
+            valores += (id_reserva_ignorar,)
+
+        cursor.execute(sql, valores)
+
+        return cursor.fetchone() is not None
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
 
 def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
-        return False  # usuário inexistente ou inativo
-    arquivo = DATA_DIR / "reservas.csv"
-    
+        return False
+
     if not verificar_sala_disponivel(id_sala):
-        return False  # Sala indisponível
-    
-    reserva_obj = Reserva(None, id_usuario, id_sala, data, hora_inicio, hora_fim, None, None)
-    
+        return False
+
+    reserva_obj = Reserva(
+        None, id_usuario, id_sala, data,
+        hora_inicio, hora_fim, None, None
+    )
+
     _validar_reserva(reserva_obj)
-    
+
     if verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim):
-        return False  # Conflito de horário
-    
+        return False
+
     status = _definir_status_reserva(id_sala)
-    
+
     if status is None:
         return False
-    
+
     reserva_obj.status = status
-    
-    reservas = carregar_reservas()
-    novo_id = reservas["idReserva"].max() + 1 if not reservas.empty else 1
     reserva_obj.criado_em = date.today()
-    reserva_obj.id = novo_id
-    
-    nova_reserva = {
-    "idReserva": reserva_obj.id,
-    "idUser": reserva_obj.usuario_id,
-    "idSala": reserva_obj.sala_id,
-    "data": reserva_obj.data.strftime("%d/%m/%Y"),
-    "horaInicio": reserva_obj.hora_inicio.strftime("%H:%M"),
-    "horaFim": reserva_obj.hora_fim.strftime("%H:%M"),
-    "status": reserva_obj.status,
-    "criado_em": reserva_obj.criado_em.strftime("%d/%m/%Y"),
-    }
-    
-    nova_linha = pd.DataFrame([nova_reserva])
-    reservas = pd.concat([reservas, nova_linha], ignore_index=True)
-    _salvar_csv(reservas, arquivo)
+
+    valores = (
+        id_usuario, id_sala, data, hora_inicio,
+        hora_fim, status, reserva_obj.criado_em
+    )
+
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor()
+
+        cursor.execute("""INSERT INTO reservas
+                       (id_usuario, id_sala, data_reserva, hora_inicio,
+                       hora_fim, status_reserva, criado_em)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""", valores)
+
+        conexao.commit()
+        reserva_obj.id = cursor.lastrowid
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
+    # Notifica somente depois de persistir a reserva.
+    if status == StatusReserva.CONFIRMADA:
+        _tentar_notificar(
+            notificacoes_service.notificar_reserva_confirmada,
+            reserva_obj
+        )
+
+    elif status == StatusReserva.PENDENTE:
+        _tentar_notificar(
+            notificacoes_service.notificar_reserva_pendente,
+            reserva_obj
+        )
+
     return reserva_obj
+
+
 
 def cancelar_reserva(id_reserva,id_usuario):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
-        return False  # usuário inexistente ou inativo
-    arquivo = DATA_DIR / "reservas.csv"
-    reservas = carregar_reservas()
-    
-    reserva = reservas[reservas["idReserva"] == id_reserva]
-    
-    if reserva.empty:
-        return False  # Reserva não encontrada
-    
-    if reserva.iloc[0]["idUser"] != id_usuario:
-        return False  # Usuário não autorizado a cancelar esta reserva
-    
-    if reserva.iloc[0]["status"] not in StatusReserva.ATIVAS:
-        return False 
-    
-    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
-    _salvar_csv(reservas, arquivo)
-    return True
+        return False
+
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor(dictionary=True)
+
+        cursor.execute(
+            """SELECT id_usuario, status_reserva
+               FROM reservas WHERE id_reserva = %s""",
+            (id_reserva,)
+        )
+        reserva = cursor.fetchone()
+
+        if not reserva:
+            return False
+
+        if reserva["id_usuario"] != id_usuario:
+            return False
+
+        if reserva["status_reserva"] not in StatusReserva.ATIVAS:
+            return False
+
+        cursor.execute(
+            "UPDATE reservas SET status_reserva = %s WHERE id_reserva = %s",
+            (StatusReserva.CANCELADA, id_reserva)
+        )
+
+        conexao.commit()
+        return True
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
 
 def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
-        return False  # usuário inexistente ou inativo
-    arquivo = DATA_DIR / "reservas.csv"
-    reservas = carregar_reservas()
-    
-    reserva = reservas[reservas["idReserva"] == id_reserva]
-    
-    if reserva.empty:
-        return False  # Reserva não encontrada
-    
-    if reserva.iloc[0]["idUser"] != id_usuario:
-        return False  # Usuário não autorizado a alterar esta reserva
-    
-    if reserva.iloc[0]["status"] not in StatusReserva.ATIVAS:
-        return False  # Reserva não pode ser alterada
-    
+        return False
+
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor(dictionary=True)
+
+        cursor.execute(
+            """SELECT id_usuario, status_reserva
+               FROM reservas WHERE id_reserva = %s""",
+            (id_reserva,)
+        )
+        reserva = cursor.fetchone()
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
+    if not reserva:
+        return False
+
+    if reserva["id_usuario"] != id_usuario:
+        return False
+
+    if reserva["status_reserva"] not in StatusReserva.ATIVAS:
+        return False
+
     if not verificar_sala_disponivel(nova_sala):
-        return False  # Sala indisponível
-    
-    reserva_obj = Reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim, reserva.iloc[0]["status"], None)
-    
+        return False
+
+    reserva_obj = Reserva(
+        id_reserva, id_usuario, nova_sala, nova_data,
+        novo_inicio, novo_fim, reserva["status_reserva"], None
+    )
+
     _validar_reserva(reserva_obj)
-    
-    if verificar_conflito_horario(nova_sala, nova_data, novo_inicio, novo_fim, id_reserva_ignorar=id_reserva):
-        return False  # Conflito de horário
-    
+
+    if verificar_conflito_horario(
+        nova_sala, nova_data, novo_inicio, novo_fim,
+        id_reserva_ignorar=id_reserva
+    ):
+        return False
+
     status = _definir_status_reserva(nova_sala)
-    
+
     if status is None:
         return False
-    
-    reserva_obj.status = status
-    
-    reservas.loc[reservas["idReserva"] == id_reserva, ["idSala", "data", "horaInicio", "horaFim", "status"]] = [nova_sala, nova_data.strftime("%d/%m/%Y"), novo_inicio.strftime("%H:%M"), novo_fim.strftime("%H:%M"), reserva_obj.status]
-    
-    _salvar_csv(reservas, arquivo)
-    return True
+
+    valores = (
+        nova_sala, nova_data, novo_inicio,
+        novo_fim, status, id_reserva
+    )
+
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor()
+
+        cursor.execute("""UPDATE reservas
+                       SET id_sala = %s,
+                       data_reserva = %s,
+                       hora_inicio = %s,
+                       hora_fim = %s,
+                       status_reserva = %s
+                       WHERE id_reserva = %s""", valores)
+
+        conexao.commit()
+        return True
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
 
 #Métodos Utilitários
 def descobre_tipo_sala(id_sala):
-    salas = carregar_salas()
-    sala = salas[salas["idSala"] == id_sala]
-    if not sala.empty:
-        return sala.iloc[0]["tipoSala"]
-    return None
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT tipo_sala FROM salas WHERE id_sala = %s",
+            (id_sala,)
+        )
+        sala = cursor.fetchone()
+
+        if sala:
+            return sala["tipo_sala"]
+
+        return None
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
 
 def _validar_reserva(reserva):
     reserva.validar_horario()
@@ -168,54 +284,150 @@ def _validar_reserva(reserva):
 
 def _definir_status_reserva(id_sala):
     sala_tipo = descobre_tipo_sala(id_sala)
-    
+
     if sala_tipo in TipoSala.PRECISA_APROVACAO:
         return StatusReserva.PENDENTE
+
     elif sala_tipo in (TipoSala.SALA, TipoSala.REUNIAO):
         return StatusReserva.CONFIRMADA
-    
+
     return None
 
+
 def aprovar_reserva(id_reserva, id_usuario):
-    arquivo = DATA_DIR / "reservas.csv"
-    reservas = carregar_reservas()
-
-    reserva = reservas[reservas["idReserva"] == id_reserva]
-    
-    if usuarios_service.checar_admin(id_usuario) == False:
-        return False
-        
-
-    if reserva.empty:
+    if not usuarios_service.checar_admin(id_usuario):
         return False
 
-    if reserva.iloc[0]["status"] != StatusReserva.PENDENTE:
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor(dictionary=True)
+
+        cursor.execute(
+            """SELECT id_usuario, id_sala, data_reserva,
+                      hora_inicio, hora_fim, status_reserva, criado_em
+               FROM reservas WHERE id_reserva = %s""",
+            (id_reserva,)
+        )
+        dados = cursor.fetchone()
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
+    if not dados:
         return False
 
-    id_sala = reserva.iloc[0]["idSala"]
-      
-    if not verificar_sala_disponivel(id_sala):
-      return False
+    if dados["status_reserva"] != StatusReserva.PENDENTE:
+        return False
 
-    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CONFIRMADA
-    _salvar_csv(reservas, arquivo)
+    if not verificar_sala_disponivel(dados["id_sala"]):
+        return False
+
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor()
+
+        cursor.execute(
+            """UPDATE reservas
+               SET status_reserva = %s
+               WHERE id_reserva = %s""",
+            (StatusReserva.CONFIRMADA, id_reserva)
+        )
+
+        conexao.commit()
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
+    dados["status_reserva"] = StatusReserva.CONFIRMADA
+    reserva_obj = _montar_objeto_reserva(id_reserva, dados)
+
+    _tentar_notificar(
+        notificacoes_service.notificar_reserva_aprovada,
+        reserva_obj
+    )
+
     return True
 
 def negar_reserva(id_reserva, id_usuario):
-    arquivo = DATA_DIR / "reservas.csv"
-    reservas = carregar_reservas()
+    if not usuarios_service.checar_admin(id_usuario):
+        return False
 
-    reserva = reservas[reservas["idReserva"] == id_reserva]
-    
-    if(usuarios_service.checar_admin(id_usuario) == False):
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor(dictionary=True)
+
+        cursor.execute(
+            """SELECT id_usuario, id_sala, data_reserva,
+                      hora_inicio, hora_fim, status_reserva, criado_em
+               FROM reservas WHERE id_reserva = %s""",
+            (id_reserva,)
+        )
+        dados = cursor.fetchone()
+
+        if not dados:
             return False
 
-    if reserva.empty:
-        return False
+        if dados["status_reserva"] != StatusReserva.PENDENTE:
+            return False
 
-    if reserva.iloc[0]["status"] != StatusReserva.PENDENTE:
-        return False
+        cursor.execute(
+            """UPDATE reservas
+               SET status_reserva = %s
+               WHERE id_reserva = %s""",
+            (StatusReserva.CANCELADA, id_reserva)
+        )
 
-    reservas.loc[reservas["idReserva"] == id_reserva, "status"] = StatusReserva.CANCELADA
-    _salvar_csv(reservas, arquivo)
+        conexao.commit()
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
+
+    dados["status_reserva"] = StatusReserva.CANCELADA
+    reserva_obj = _montar_objeto_reserva(id_reserva, dados)
+
+    _tentar_notificar(
+        notificacoes_service.notificar_reserva_recusada,
+        reserva_obj
+    )
+
     return True
+        
+def _tentar_notificar(funcao_notificacao, reserva):
+    try:
+        resultado = funcao_notificacao(reserva)
+
+        if not resultado:
+            logger.warning(
+                "Não foi possível enviar a notificação da reserva %s.",
+                reserva.id
+            )
+
+    except Exception:
+        logger.exception(
+            "Erro ao notificar a reserva %s.",
+            reserva.id
+        )
+        
+def _montar_objeto_reserva(id_reserva, dados):
+    return Reserva(
+        id_reserva,
+        dados["id_usuario"],
+        dados["id_sala"],
+        dados["data_reserva"],
+        dados["hora_inicio"],
+        dados["hora_fim"],
+        dados["status_reserva"],
+        dados["criado_em"]
+    )

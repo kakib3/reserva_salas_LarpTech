@@ -1,10 +1,13 @@
 from app.services import usuarios_service
 from app.utils.excecoes import tratar_erro_de_dados
 
+
 @tratar_erro_de_dados
 def cadastrar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
     try:
-        resultado = usuarios_service.criar_usuario(nome, email, telefone, role, senha, id_solicitante)
+        resultado = usuarios_service.criar_usuario(
+            nome, email, telefone, role, senha, id_solicitante
+        )
     except (ValueError, PermissionError) as e:
         return False, str(e), None
 
@@ -12,6 +15,7 @@ def cadastrar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
         return False, "Já existe um usuário cadastrado com esse email.", None
 
     return True, "Usuário cadastrado com sucesso.", resultado
+
 
 @tratar_erro_de_dados
 def fazer_login(email, senha):
@@ -22,10 +26,13 @@ def fazer_login(email, senha):
 
     return True, f"Bem-vindo, {resultado.nome}!", resultado
 
+
 @tratar_erro_de_dados
 def editar_usuario(id_usuario, nome, email, telefone, role, id_solicitante):
     try:
-        resultado = usuarios_service.alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role)
+        resultado = usuarios_service.alterar_usuario(
+            id_solicitante, id_usuario, nome, email, telefone, role
+        )
     except (ValueError, PermissionError) as e:
         return False, str(e), None
 
@@ -34,10 +41,13 @@ def editar_usuario(id_usuario, nome, email, telefone, role, id_solicitante):
 
     return True, "Dados atualizados com sucesso.", resultado
 
+
 @tratar_erro_de_dados
 def trocar_senha(id_usuario, senha_atual, nova_senha, id_solicitante):
     try:
-        resultado = usuarios_service.alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha)
+        resultado = usuarios_service.alterar_senha(
+            id_solicitante, id_usuario, senha_atual, nova_senha
+        )
     except (ValueError, PermissionError) as e:
         return False, str(e), None
 
@@ -45,6 +55,7 @@ def trocar_senha(id_usuario, senha_atual, nova_senha, id_solicitante):
         return False, "Usuário não encontrado ou senha atual incorreta.", None
 
     return True, "Senha alterada com sucesso.", None
+
 
 @tratar_erro_de_dados
 def desativar_usuario(id_usuario, id_solicitante):
@@ -58,6 +69,7 @@ def desativar_usuario(id_usuario, id_solicitante):
 
     return True, "Usuário desativado com sucesso.", None
 
+
 @tratar_erro_de_dados
 def obter_usuario(id_usuario, id_solicitante):
     try:
@@ -69,6 +81,7 @@ def obter_usuario(id_usuario, id_solicitante):
         return False, "Usuário não encontrado.", None
 
     return True, "", usuario
+
 
 @tratar_erro_de_dados
 def listar_todos_usuarios(id_solicitante):

@@ -99,6 +99,7 @@ def test_enviar_notificacao_usuario_sem_email(monkeypatch):
             "Reserva recusada - LarpTech",
             "Recusada"
         ),
+        
     ]
 )
 def test_notificacoes_de_reserva(
@@ -109,11 +110,11 @@ def test_notificacoes_de_reserva(
 ):
     reserva = criar_reserva()
 
-    sala = SimpleNamespace(
-        nome="Laboratório 01",
-        predio="Bloco A",
-        andar="2º"
-    )
+    sala = {
+        "nome": "Laboratório 01",
+        "predio": "Bloco A",
+        "andar": "2º"
+    }
 
     chamada = {}
 
