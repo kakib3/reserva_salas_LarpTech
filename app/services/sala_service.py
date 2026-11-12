@@ -57,7 +57,7 @@ def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitant
                 
         cursor.execute("""INSERT INTO salas (nome, capacidade, predio, andar, status_sala, tipo_sala)
                        VALUES
-                       ('%s', %s, '%s', '%s', '%s', '%s')""", valores)
+                       (%s, %s, %s, %s, %s, %s)""", valores)
         conexao.commit()
         return True
             
@@ -76,7 +76,7 @@ def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicit
     try:
         cursor = conexao.cursor(dictionary=True)
                     
-        cursor.execute("SELECT id_sala FROM salas WHERE id_sala = %s;", (id_sala,))
+        cursor.execute("SELECT id_sala, status_sala FROM salas WHERE id_sala = %s;", (id_sala,))
         resultado = cursor.fetchone()
         if not resultado:
             return False # Sala não encontrada
