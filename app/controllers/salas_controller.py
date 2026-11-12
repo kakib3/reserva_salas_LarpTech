@@ -5,7 +5,9 @@ from app.utils.excecoes import tratar_erro_de_dados
 @tratar_erro_de_dados
 def cadastrar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitante):
     try:
-        resultado = sala_service.criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitante)
+        resultado = sala_service.criar_sala(
+            nome, capacidade, predio, andar, status, tipo_sala, id_solicitante
+        )
     except (ValueError, PermissionError) as e:
         return False, str(e), None
 
@@ -15,7 +17,9 @@ def cadastrar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solici
 @tratar_erro_de_dados
 def editar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicitante):
     try:
-        resultado = sala_service.alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicitante)
+        resultado = sala_service.alterar_sala(
+            id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicitante
+        )
     except (ValueError, PermissionError) as e:
         return False, str(e), None
 
@@ -28,7 +32,9 @@ def editar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicita
 @tratar_erro_de_dados
 def mudar_status_sala(id_sala, novo_status, id_solicitante):
     try:
-        resultado = sala_service.alterar_status_sala(id_sala, novo_status, id_solicitante)
+        resultado = sala_service.alterar_status_sala(
+            id_sala, novo_status, id_solicitante
+        )
     except (ValueError, PermissionError) as e:
         return False, str(e), None
 
@@ -74,7 +80,6 @@ def obter_sala(id_sala):
     return True, "", sala
 
 
-# Retorna a lista direto (sem tupla), então não usa o decorator.
-# ErroDeDados levantado aqui sobe até o try/except do main.py.
+# Mantém o retorno direto da Service, como já era esperado pelas chamadas existentes.
 def listar_todas_salas():
     return sala_service.listar_salas()
