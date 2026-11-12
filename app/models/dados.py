@@ -70,7 +70,7 @@ def obter_reservas_da_sala(id_sala, data=None):
 
         else:
             sql = "SELECT * FROM reservas WHERE id_sala = %s;"
-            valores = (id_sala)
+            valores = (id_sala,)
 
         cursor.execute(sql, valores)
         return cursor.fetchall()
