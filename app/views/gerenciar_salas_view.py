@@ -34,7 +34,7 @@ def _formulario_cadastro(usuario):
             predio = st.text_input("Prédio", placeholder="Ex.: Anexo1")
         with col2:
             capacidade = st.number_input("Capacidade", min_value=1, value=1, step=1)
-            andar = st.number_input("Andar", min_value=0, value=0, step=1)
+            andar = st.text_input("Andar", placeholder="Ex.: Piso1")
 
         status = st.selectbox(
             "Status",
@@ -45,12 +45,12 @@ def _formulario_cadastro(usuario):
         enviado = st.form_submit_button("Cadastrar sala", type="primary")
 
     if enviado:
-        if not predio.strip():
-            st.error("Informe o prédio da sala.")
+        if not predio.strip() or not andar.strip():
+            st.error("Informe o prédio e o andar da sala.")
             return
 
         sucesso, mensagem, _ = salas_controller.cadastrar_sala(
-            nome.strip(), int(capacidade), predio.strip(), int(andar),
+            nome.strip(), int(capacidade), predio.strip(), andar.strip(),
             status, tipo_sala, usuario.id,
         )
         if sucesso:
@@ -86,18 +86,16 @@ def _formulario_edicao(usuario):
             capacidade = st.number_input(
                 "Capacidade", min_value=1, value=max(1, int(sala["capacidade"])), step=1
             )
-            andar = st.number_input(
-                "Andar", min_value=0, value=int(sala["andar"] or 0), step=1
-            )
+            andar = st.text_input("Andar", value=str(sala["andar"] or ""))
 
         salvar = st.form_submit_button("Salvar alterações", type="primary")
 
     if salvar:
-        if not predio.strip():
-            st.error("Informe o prédio da sala.")
+        if not predio.strip() or not andar.strip():
+            st.error("Informe o prédio e o andar da sala.")
         else:
             sucesso, mensagem, _ = salas_controller.editar_sala(
-                id_sala, nome.strip(), int(capacidade), predio.strip(), int(andar),
+                id_sala, nome.strip(), int(capacidade), predio.strip(), andar.strip(),
                 tipo_sala, usuario.id,
             )
             if sucesso:
