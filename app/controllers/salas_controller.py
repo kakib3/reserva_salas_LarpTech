@@ -124,10 +124,11 @@ def consultar_salas_disponiveis(limite=5):
 
 
 @tratar_erro_de_dados
-def consultar_disponibilidade(id_sala, data_consulta):
+def consultar_disponibilidade(id_sala, data_consulta, id_usuario = None):
     resultado = sala_service.consultar_disponibilidade(
         id_sala,
-        data_consulta
+        data_consulta,
+        id_usuario
     )
 
     if resultado is None:
