@@ -7,7 +7,6 @@ from app.views.detalhes_sala_view import render as render_detalhes_sala
 from app.views.reservar_view import render as render_reservar
 from app.views.minhas_reservas_view import render as render_minhas_reservas
 from app.utils.sessao import usuario_logado, logout_sessao
-from app.utils.excecoes import ErroDeDados
 
 log = logging.getLogger(__name__)
     
@@ -30,19 +29,12 @@ def reservar_page():
 def minhas_reservas_page():
     render_minhas_reservas()
 
-
 def executar(navigation):
-    """Roda a página atual sem deixar uma exceção derrubar a tela com stack trace."""
     try:
         navigation.run()
-    except ErroDeDados as e:
-        st.error(e.mensagem_usuario)
     except Exception:
-        # As exceções de controle do Streamlit (st.rerun, st.switch_page, st.stop)
-        # herdam de BaseException, então não são capturadas aqui.
         log.exception("Erro inesperado ao renderizar a página")
         st.error("Ocorreu um erro inesperado. Tente novamente ou contate o administrador.")
-
 
 usuario = usuario_logado()
 
