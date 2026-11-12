@@ -1,14 +1,11 @@
 import streamlit as st
-from datetime import date, datetime
+from datetime import date
 from app.models.dados import carregar_salas, carregar_reservas, carregar_usuarios
 from app.controllers.reservas_controller import aprovar_reserva, negar_reserva
 from app.utils.sessao import usuario_logado
 from app.utils.salas_ocultas import esta_oculta
-from app.utils.formatacao import formatar_nome_sala
+from app.utils.formatacao import formatar_nome_sala, formatar_data, formatar_hora
 from app.models.constantes import StatusSala, StatusReserva
-
-def converter_data(texto):
-    return datetime.strptime(str(texto), "%d/%m/%Y").date()
 
 
 def render():
@@ -19,71 +16,69 @@ def render():
     hoje = date.today()
     st.write(hoje.strftime("%d/%m/%Y"))
 
+    salas = carregar_salas()
+    nomes_salas = {sala["id_sala"]: formatar_nome_sala(sala["nome"]) for sala in salas}
+    reservas = carregar_reservas()
+
     col_reserva, col_disponiveis = st.columns(2)
 
     with col_reserva:
         st.subheader("Próxima reserva")
-        salas = carregar_salas().set_index("idSala")
-        reservas = carregar_reservas()
-        minhas = reservas[reservas["idUser"] == usuario.id]
-        minhas = minhas[minhas["status"].isin(StatusReserva.ATIVAS)]
-        minhas = minhas.copy()
-        minhas["data_convertida"] = minhas["data"].apply(converter_data)
-        minhas = minhas[minhas["data_convertida"] >= hoje]
+        minhas = [
+            reserva for reserva in reservas
+            if reserva["id_usuario"] == usuario.id
+            and reserva["status_reserva"] in StatusReserva.ATIVAS
+            and reserva["data_reserva"] >= hoje
+        ]
 
-        if minhas.empty:
+        if not minhas:
             st.write("Você não tem nenhuma reserva agendada.")
         else:
-            proxima = minhas.sort_values(by=["data_convertida", "horaInicio"]).iloc[0]
-            if proxima["idSala"] in salas.index:
-                nome_sala = formatar_nome_sala(salas.loc[proxima["idSala"], "nome"])
-            else:
-                nome_sala = proxima["idSala"]
+            proxima = min(minhas, key=lambda reserva: (reserva["data_reserva"], reserva["hora_inicio"]))
 
             with st.container(border=True):
-                st.write(nome_sala)
-                st.write(f"Data: {proxima['data']}")
-                st.write(f"Hora: {proxima['horaInicio']} às {proxima['horaFim']}")
-                st.write(f"Status: {proxima['status']}")
+                st.write(nomes_salas.get(proxima["id_sala"], proxima["id_sala"]))
+                st.write(f"Data: {formatar_data(proxima['data_reserva'])}")
+                st.write(f"Hora: {formatar_hora(proxima['hora_inicio'])} às {formatar_hora(proxima['hora_fim'])}")
+                st.write(f"Status: {proxima['status_reserva']}")
 
         if usuario.role == "Admin":
             st.subheader("Pendências")
-            todas_reservas = carregar_reservas()
-            pendentes = todas_reservas[todas_reservas["status"] == StatusReserva.PENDENTE]
+            pendentes = [
+                reserva for reserva in reservas
+                if reserva["status_reserva"] == StatusReserva.PENDENTE
+            ]
 
-            if pendentes.empty:
+            if not pendentes:
                 st.write("Nenhuma pendência no momento.")
             else:
-                usuarios = carregar_usuarios().set_index("idUser")
-                for _, pendencia in pendentes.iterrows():
-                    if pendencia["idSala"] in salas.index:
-                        nome_sala_pendencia = formatar_nome_sala(salas.loc[pendencia["idSala"], "nome"])
-                    else:
-                        nome_sala_pendencia = pendencia["idSala"]
+                usuarios = {u["id_usuario"]: u for u in carregar_usuarios()}
+                for pendencia in pendentes:
+                    nome_sala_pendencia = nomes_salas.get(pendencia["id_sala"], pendencia["id_sala"])
 
-                    if pendencia["idUser"] in usuarios.index:
-                        solicitante = usuarios.loc[pendencia["idUser"]]
-                        descricao_solicitante = f"{solicitante['role']} : {solicitante['nome']}"
+                    solicitante = usuarios.get(pendencia["id_usuario"])
+                    if solicitante is not None:
+                        descricao_solicitante = f"{solicitante['papel']} : {solicitante['nome']}"
                     else:
                         descricao_solicitante = "Usuário desconhecido"
 
                     with st.container(border=True):
                         st.write(f"{nome_sala_pendencia} - {descricao_solicitante}")
-                        st.write(f"Data: {pendencia['data']}")
-                        st.write(f"Hora: {pendencia['horaInicio']} às {pendencia['horaFim']}")
+                        st.write(f"Data: {formatar_data(pendencia['data_reserva'])}")
+                        st.write(f"Hora: {formatar_hora(pendencia['hora_inicio'])} às {formatar_hora(pendencia['hora_fim'])}")
 
                         col_aprovar, col_negar = st.columns(2)
                         with col_aprovar:
-                            if st.button("Reservar", key=f"aprovar_{pendencia['idReserva']}"):
-                                sucesso, mensagem, _ = aprovar_reserva(pendencia["idReserva"], usuario.id)
+                            if st.button("Reservar", key=f"aprovar_{pendencia['id_reserva']}"):
+                                sucesso, mensagem, _ = aprovar_reserva(pendencia["id_reserva"], usuario.id)
                                 if sucesso:
                                     st.success(mensagem)
                                     st.rerun()
                                 else:
                                     st.error(mensagem)
                         with col_negar:
-                            if st.button("Cancelar", key=f"negar_{pendencia['idReserva']}"):
-                                sucesso, mensagem, _ = negar_reserva(pendencia["idReserva"], usuario.id)
+                            if st.button("Cancelar", key=f"negar_{pendencia['id_reserva']}"):
+                                sucesso, mensagem, _ = negar_reserva(pendencia["id_reserva"], usuario.id)
                                 if sucesso:
                                     st.success(mensagem)
                                     st.rerun()
@@ -92,19 +87,21 @@ def render():
 
     with col_disponiveis:
         st.subheader("Salas disponíveis agora")
-        salas_disponiveis = carregar_salas()
-        salas_disponiveis = salas_disponiveis[~salas_disponiveis["idSala"].apply(esta_oculta)]
-        disponiveis = salas_disponiveis[salas_disponiveis["status"] == StatusSala.DISPONIVEL]
+        disponiveis = [
+            sala for sala in salas
+            if not esta_oculta(sala["id_sala"])
+            and sala["status_sala"] == StatusSala.DISPONIVEL
+        ]
 
-        if disponiveis.empty:
+        if not disponiveis:
             st.write("Nenhuma sala disponível no momento.")
         else:
-            for _, sala in disponiveis.head(5).iterrows():
+            for sala in disponiveis[:5]:
                 with st.container(border=True):
                     st.write(formatar_nome_sala(sala["nome"]))
                     st.write(f"Prédio: {formatar_nome_sala(sala['predio'])}")
                     st.write(f"Capacidade: {sala['capacidade']}")
-                    st.write(f"Status: {sala['status']}")
-                    if st.button("Reservar", key=f"reservar_{sala['idSala']}"):
-                        st.session_state["sala_pre_selecionada"] = sala["idSala"]
+                    st.write(f"Status: {sala['status_sala']}")
+                    if st.button("Reservar", key=f"reservar_{sala['id_sala']}"):
+                        st.session_state["sala_pre_selecionada"] = sala["id_sala"]
                         st.switch_page(st.session_state["pagina_reservar"])
