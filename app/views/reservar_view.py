@@ -11,17 +11,21 @@ def render():
     st.title("Reservar Sala")
     usuario = usuario_logado()
 
-    salas = carregar_salas()
-    salas = salas[~salas["idSala"].apply(esta_oculta)]
-    nomes_formatados = salas["nome"].apply(formatar_nome_sala).tolist()
+    salas = [sala for sala in carregar_salas() if not esta_oculta(sala["id_sala"])]
+
+    if not salas:
+        st.info("Nenhuma sala disponível para reserva.")
+        return
+
+    nomes_formatados = [formatar_nome_sala(sala["nome"]) for sala in salas]
+    ids_salas = [sala["id_sala"] for sala in salas]
 
     if "sala_pre_selecionada" in st.session_state:
         sala_pre_selecionada = st.session_state.pop("sala_pre_selecionada")
-        ids_salas = salas["idSala"].tolist()
         if sala_pre_selecionada in ids_salas:
             st.session_state["indice_sala_reservar"] = ids_salas.index(sala_pre_selecionada)
 
-    if "indice_sala_reservar" not in st.session_state:
+    if st.session_state.get("indice_sala_reservar", 0) >= len(salas):
         st.session_state["indice_sala_reservar"] = 0
 
     indice_escolhido = st.selectbox(
@@ -30,7 +34,7 @@ def render():
         format_func=lambda i: nomes_formatados[i],
         key="indice_sala_reservar",
     )
-    id_sala = salas.iloc[indice_escolhido]["idSala"]
+    id_sala = ids_salas[indice_escolhido]
 
     data_reserva = st.date_input(
         "Data da reserva",
