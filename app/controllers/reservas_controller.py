@@ -64,3 +64,33 @@ def negar_reserva(id_reserva, id_solicitante):
         return False, "Não foi possível negar: verifique a permissão e se a reserva está pendente.", None
 
     return True, "Reserva negada com sucesso.", None
+
+@tratar_erro_de_dados
+def consultar_proxima_reserva(id_usuario, data_atual):
+    resultado = reservas_service.consultar_proxima_reserva(
+        id_usuario,
+        data_atual
+    )
+
+    return True, "", resultado
+
+
+@tratar_erro_de_dados
+def consultar_reservas_pendentes(id_solicitante):
+    try:
+        resultado = reservas_service.consultar_reservas_pendentes(
+            id_solicitante
+        )
+    except PermissionError as e:
+        return False, str(e), None
+
+    return True, "", resultado
+
+
+@tratar_erro_de_dados
+def consultar_reservas_usuario(id_usuario):
+    resultado = reservas_service.consultar_reservas_usuario(
+        id_usuario
+    )
+
+    return True, "", resultado
