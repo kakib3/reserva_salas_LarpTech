@@ -509,3 +509,6 @@ def _normalizar_horarios(reserva):
                 (segundos % 3600) // 60,
                 segundos % 60
             )
+            
+def pode_gerenciar_pendencias(id_usuario):
+    return usuarios_service.checar_admin(id_usuario)
