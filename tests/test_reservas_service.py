@@ -141,7 +141,7 @@ class TestCriarReserva(unittest.TestCase):
             time(21, 0)
         )
 
-        self.assertIsNot(False, reserva)
+        self.assertIsNot(reserva, False)
 
     def test_criar_reserva_com_conflito(self):
         criar_reserva(
@@ -254,7 +254,7 @@ class TestCriarReserva(unittest.TestCase):
             time(21, 0)
         )
 
-        self.assertIsNot(False, reserva)
+        self.assertIsNot(reserva, False)
         self.assertEqual(reserva.status, "Confirmada")
 
     def test_laboratorio_fica_pendente(self):
@@ -266,7 +266,7 @@ class TestCriarReserva(unittest.TestCase):
             time(21, 0)
         )
 
-        self.assertIsNot(False, reserva)
+        self.assertIsNot(reserva, False)
         self.assertEqual(reserva.status, "Pendente")
 
     def test_auditorio_fica_pendente(self):
@@ -278,20 +278,10 @@ class TestCriarReserva(unittest.TestCase):
             time(21, 0)
         )
 
-        self.assertIsNot(False, reserva)
+        self.assertIsNot(reserva, False)
         self.assertEqual(reserva.status, "Pendente")
 
-class TestCancelarReserva(unittest.TestCase):
-
-    def setUp(self):
-        self.arquivo_reservas = DATA_DIR / "reservas.csv"
-        self.backup_reservas = DATA_DIR / "reservas_backup.csv"
-
-        shutil.copy(self.arquivo_reservas, self.backup_reservas)
-
-    def tearDown(self):
-        shutil.copy(self.backup_reservas, self.arquivo_reservas)
-        self.backup_reservas.unlink()
+class TestCancelarReserva(BaseCSVTest):
 
     def test_cancelar_propria_reserva_confirmada(self):
         resultado = cancelar_reserva(1, 4)
@@ -301,10 +291,15 @@ class TestCancelarReserva(unittest.TestCase):
         self.assertEqual(resultado.status, "Cancelada")
 
     def test_cancelar_propria_reserva_pendente(self):
-        resultado = cancelar_reserva(8, 7)
+        id_reserva = _garantir_reserva_pendente()
+        id_usuario = _dono_da_reserva(id_reserva)
+
+        self.assertEqual(_status_reserva(id_reserva), "Pendente")
+
+        resultado = cancelar_reserva(id_reserva, id_usuario)
 
         self.assertIsNot(resultado, False)
-        self.assertEqual(resultado.id, 8)
+        self.assertEqual(resultado.id, id_reserva)
         self.assertEqual(resultado.status, "Cancelada")
 
     def test_cancelar_reserva_de_outro_usuario(self):
