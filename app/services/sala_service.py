@@ -115,7 +115,7 @@ def alterar_status_sala(id_sala, novo_status, id_solicitante):
     
     try:
         cursor = conexao.cursor(dictionary=True)
-        cursor.execute("SELECT status_sala FROM salas WHERE id_sala = %s")
+        cursor.execute("SELECT status_sala FROM salas WHERE id_sala = %s", (id_sala,))
         resultado = cursor.fetchone()
         
         if not resultado:
