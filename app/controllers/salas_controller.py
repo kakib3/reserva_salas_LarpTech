@@ -77,3 +77,61 @@ def obter_sala(id_sala):
 # Mantém o retorno direto da Service, como já era esperado pelas chamadas existentes.
 def listar_todas_salas():
     return sala_service.listar_salas()
+
+@tratar_erro_de_dados
+def consultar_salas(id_usuario, somente_disponiveis=False, capacidade_minima=0, predio=None):
+    try:
+        salas = sala_service.consultar_salas(
+            id_usuario,
+            somente_disponiveis,
+            capacidade_minima,
+            predio
+        )
+    except (ValueError, PermissionError) as e:
+        return False, str(e), None
+
+    return True, "", salas
+
+
+@tratar_erro_de_dados
+def consultar_predios(id_usuario):
+    try:
+        predios = sala_service.consultar_predios(id_usuario)
+    except (ValueError, PermissionError) as e:
+        return False, str(e), None
+
+    return True, "", predios
+
+
+@tratar_erro_de_dados
+def consultar_salas_para_reserva(id_usuario):
+    try:
+        salas = sala_service.consultar_salas_para_reserva(id_usuario)
+    except (ValueError, PermissionError) as e:
+        return False, str(e), None
+
+    return True, "", salas
+
+
+@tratar_erro_de_dados
+def consultar_salas_disponiveis(limite=5):
+    if not isinstance(limite, int) or limite < 1:
+        return False, "O limite deve ser um número inteiro positivo.", None
+
+    salas = sala_service.consultar_salas_disponiveis(limite)
+
+    return True, "", salas
+
+
+@tratar_erro_de_dados
+def consultar_disponibilidade(id_sala, data_consulta, id_usuario = None):
+    resultado = sala_service.consultar_disponibilidade(
+        id_sala,
+        data_consulta,
+        id_usuario
+    )
+
+    if resultado is None:
+        return False, "Sala não encontrada.", None
+
+    return True, "", resultado

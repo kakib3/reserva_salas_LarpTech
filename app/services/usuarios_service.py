@@ -93,9 +93,9 @@ def verificar_email_disponivel(email, id_usuario_ignorar=None):
             )
         else:
             cursor.execute("SELECT id_usuario FROM usuarios WHERE email = %s", (email,))
-            
-            return cursor.fetchone() is None
-        
+
+        return cursor.fetchone() is None
+
     finally:
         if cursor is not None:
             cursor.close()
@@ -205,7 +205,10 @@ def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
         return False  
            
     valores = (nome, email, telefone, role, id_usuario)
-           
+
+    conexao = conectar_banco()
+    cursor = None
+
     try:
         cursor = conexao.cursor()
         
@@ -215,7 +218,7 @@ def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
                        telefone = %s,
                        papel = %s
                        WHERE id_usuario = %s""", valores)
-        cursor.commit()
+        conexao.commit()
         return usuario_obj
     
     finally:
@@ -257,11 +260,14 @@ def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
     )
         
     usuario_obj.validar_senha()
-        
+
+    conexao = conectar_banco()
+    cursor = None
+
     try:
         cursor = conexao.cursor()
         cursor.execute("UPDATE usuarios SET senha = %s WHERE id_usuario = %s", (nova_senha, id_usuario))
-        cursor.commit()
+        conexao.commit()
         return True
     
     finally:

@@ -1,31 +1,25 @@
 import functools
+import logging
+from mysql.connector import Error as MySQLError
 
+log = logging.getLogger(__name__)
 
-class ErroDeDados(Exception):
-    """Falha ao ler ou gravar o armazenamento (CSV).
-
-    Não herda de ValueError nem de OSError de propósito: assim os
-    `except ValueError` e `except PermissionError` dos controllers não a
-    capturam por engano e a exibem como erro de regra de negócio.
-    """
-
-    def __init__(self, mensagem_usuario):
-        super().__init__(mensagem_usuario)
-        self.mensagem_usuario = mensagem_usuario
+MENSAGEM_ERRO_BANCO = "Não foi possível acessar os dados. Tente novamente."
 
 
 def tratar_erro_de_dados(func):
-    """Para controllers que retornam (sucesso, mensagem, objeto).
+    """Padroniza o retorno dos controllers quando o banco falha.
 
-    Converte ErroDeDados em (False, mensagem_amigavel, None), o mesmo
-    formato usado nos erros de regra de negócio.
+    Devolve (False, mensagem_amigavel, None) e registra a causa real no log.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except ErroDeDados as e:
-            return False, e.mensagem_usuario, None
+
+        except MySQLError:
+            log.exception("Falha de acesso ao banco em %s", func.__name__)
+            return False, MENSAGEM_ERRO_BANCO, None
 
     return wrapper

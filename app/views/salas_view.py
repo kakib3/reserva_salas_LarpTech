@@ -1,74 +1,124 @@
 import streamlit as st
-from app.models.dados import carregar_salas
 from app.controllers import salas_controller
 from app.utils.sessao import usuario_logado
-from app.utils.salas_ocultas import esta_oculta
 from app.utils.formatacao import formatar_nome_sala
-from app.models.constantes import StatusSala
+
 
 def render():
     st.title("Salas")
 
     usuario = usuario_logado()
-    eh_admin = usuario is not None and usuario.role == "Admin"
 
-    salas = carregar_salas()
-    if not eh_admin:
-        # Só o Admin enxerga as salas ocultas (para poder exibi-las de novo)
-        salas = salas[~salas["idSala"].apply(esta_oculta)]
+    # Consulta dos prédios disponíveis para o filtro
+    sucesso, mensagem, predios = (
+        salas_controller.consultar_predios(usuario.id)
+    )
 
-    predios_formatados = sorted(set(salas["predio"].apply(formatar_nome_sala)))
+    if not sucesso:
+        st.error(mensagem)
+        return
 
     st.subheader("Filtros")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        somente_disponiveis = st.checkbox("Somente disponíveis")
-    with col2:
-        capacidade_minima = st.number_input("Capacidade mínima", min_value=0, value=0, step=1)
-    with col3:
-        predio_escolhido = st.selectbox("Prédio", ["Todos"] + predios_formatados)
 
-    if somente_disponiveis:
-        salas = salas[salas["status"] == StatusSala.DISPONIVEL]
-    if capacidade_minima:
-        salas = salas[salas["capacidade"] >= capacidade_minima]
-    if predio_escolhido != "Todos":
-        salas = salas[salas["predio"].apply(formatar_nome_sala) == predio_escolhido]
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        somente_disponiveis = st.checkbox(
+            "Somente disponíveis"
+        )
+
+    with col2:
+        capacidade_minima = st.number_input(
+            "Capacidade mínima",
+            min_value=0,
+            value=0,
+            step=1
+        )
+
+    with col3:
+        predio_escolhido = st.selectbox(
+            "Prédio",
+            ["Todos"] + predios
+        )
+
+    # Consulta já filtrada pelo service
+    sucesso, mensagem, salas = (
+        salas_controller.consultar_salas(
+            id_usuario=usuario.id,
+            somente_disponiveis=somente_disponiveis,
+            capacidade_minima=capacidade_minima,
+            predio=predio_escolhido
+        )
+    )
+
+    if not sucesso:
+        st.error(mensagem)
+        return
 
     st.write(f"{len(salas)} sala(s) encontrada(s)")
 
-    if salas.empty:
+    if not salas:
         st.write("Nenhuma sala encontrada com esses filtros.")
         return
 
     colunas = st.columns(2)
-    for indice, (_, sala) in enumerate(salas.iterrows()):
+
+    for indice, sala in enumerate(salas):
         coluna_atual = colunas[indice % 2]
-        oculta = esta_oculta(sala["idSala"])
 
         with coluna_atual:
             with st.container(border=True):
-                st.write(formatar_nome_sala(sala["nome"]))
+                nome_sala = formatar_nome_sala(sala["nome"])
+
+                st.write(nome_sala)
                 st.write(f"Capacidade: {sala['capacidade']}")
-                st.write(f"Status: {sala['status']}")
+                st.write(f"Status: {sala['status_sala']}")
 
-                if oculta:
+                if sala["oculta"]:
                     st.caption("Oculta para os usuários")
-                elif st.button("Ver detalhes", key=f"detalhes_{sala['idSala']}"):
-                    st.session_state["sala_pre_selecionada_detalhes"] = sala["idSala"]
-                    st.switch_page(st.session_state["pagina_detalhes_sala"])
 
-                if eh_admin:
-                    if oculta:
-                        if st.button("Exibir", key=f"exibir_{sala['idSala']}"):
-                            sucesso, mensagem, _ = salas_controller.mostrar_sala(sala["idSala"], usuario.id)
+                else:
+                    if st.button(
+                        "Ver detalhes",
+                        key=f"detalhes_{sala['id_sala']}"
+                    ):
+                        st.session_state[
+                            "sala_pre_selecionada_detalhes"
+                        ] = sala["id_sala"]
+
+                        st.switch_page(
+                            st.session_state["pagina_detalhes_sala"]
+                        )
+
+                if sala["pode_gerenciar"]:
+                    if sala["oculta"]:
+                        if st.button(
+                            "Exibir",
+                            key=f"exibir_{sala['id_sala']}"
+                        ):
+                            sucesso, mensagem, _ = (
+                                salas_controller.mostrar_sala(
+                                    sala["id_sala"], usuario.id
+                                )
+                            )
+
                             if sucesso:
                                 st.rerun()
                             else:
                                 st.error(mensagem)
+
                     else:
-                        if st.button("Ocultar", key=f"ocultar_{sala['idSala']}", type="primary"):
-                            sucesso, mensagem, _ = salas_controller.ocultar_sala(sala["idSala"], usuario.id)
+                        if st.button(
+                            "Ocultar",
+                            key=f"ocultar_{sala['id_sala']}",
+                            type="primary"
+                        ):
+                            sucesso, mensagem, _ = (
+                                salas_controller.ocultar_sala(
+                                    sala["id_sala"], usuario.id
+                                )
+                            )
+
                             if sucesso:
                                 st.rerun()
                             else:

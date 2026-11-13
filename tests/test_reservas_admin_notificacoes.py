@@ -23,10 +23,14 @@ class FakeCursor:
         self.dados = dados
         self.sql = None
         self.valores = None
+        self.rowcount = 0
 
     def execute(self, sql, valores):
         self.sql = sql
         self.valores = valores
+
+        if sql.strip().upper().startswith("UPDATE"):
+            self.rowcount = 1
 
     def fetchone(self):
         return self.dados

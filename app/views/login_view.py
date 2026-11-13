@@ -10,10 +10,14 @@ def render():
     senha = st.text_input("Senha", type="password")
 
     if st.button("Entrar"):
-        sucesso, mensagem, usuario = usuarios_controller.fazer_login(email, senha)
+        sucesso, mensagem, usuario = (
+            usuarios_controller.fazer_login(email, senha)
+        )
+
         if sucesso:
             login_sessao(usuario)
             st.success(mensagem)
             st.rerun()
+
         else:
             st.error(mensagem)
