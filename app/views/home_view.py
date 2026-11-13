@@ -80,7 +80,7 @@ def render():
 
                         with col_aprovar:
                             if st.button(
-                                "Reservar",
+                                "Aprovar",
                                 key=f"aprovar_{pendencia['id_reserva']}"
                             ):
                                 sucesso, mensagem, _ = (
@@ -98,7 +98,7 @@ def render():
 
                         with col_negar:
                             if st.button(
-                                "Cancelar",
+                                "Negar",
                                 key=f"negar_{pendencia['id_reserva']}"
                             ):
                                 sucesso, mensagem, _ = (
