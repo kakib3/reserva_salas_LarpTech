@@ -1,6 +1,7 @@
 from app.models.conexao import conectar_banco
 from app.models.reserva import Reserva
-from datetime import date, time, timedelta
+from datetime import time, timedelta
+from app.utils.relogio import hoje
 from app.services import usuarios_service
 from app.utils import salas_ocultas
 from app.models.constantes import StatusReserva, StatusSala, TipoSala
@@ -90,7 +91,7 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
         return False
 
     reserva_obj.status = status
-    reserva_obj.criado_em = date.today()
+    reserva_obj.criado_em = hoje()
 
     valores = (
         id_usuario, id_sala, data, hora_inicio,

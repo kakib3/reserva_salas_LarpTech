@@ -1,5 +1,6 @@
 import streamlit as st
-from datetime import date, time
+from datetime import time
+from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
 from app.models.constantes import StatusReserva
 from app.utils.sessao import usuario_logado
@@ -53,7 +54,7 @@ def render():
 
     data_reserva = st.date_input(
         "Data da reserva",
-        min_value=date.today(),
+        min_value= hoje(),
         format="DD/MM/YYYY"
     )
 
