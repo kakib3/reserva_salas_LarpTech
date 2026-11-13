@@ -3,7 +3,7 @@ from app.models.reserva import Reserva
 from datetime import date, time, timedelta
 from app.services import usuarios_service
 from app.utils import salas_ocultas
-from app.models.constantes import StatusReserva, StatusSala, TipoSala
+from app.models.constantes import PapelUsuario, StatusReserva, StatusSala, TipoSala
 
 def verificar_sala_disponivel(id_sala):
     conexao = conectar_banco()
@@ -29,20 +29,22 @@ def verificar_sala_disponivel(id_sala):
         conexao.close()
 
 
-def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
-    
+def obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
+    """Retorna as reservas ativas que se sobrepõem ao horário, com o papel do dono de cada uma."""
     conexao = conectar_banco()
     cursor = None
 
     try:
         cursor = conexao.cursor(dictionary=True)
 
-        sql = """SELECT id_reserva FROM reservas
-                 WHERE id_sala = %s
-                 AND data_reserva = %s
-                 AND status_reserva IN (%s, %s)
-                 AND hora_inicio < %s
-                 AND hora_fim > %s"""
+        sql = """SELECT r.id_reserva, u.papel
+                 FROM reservas r
+                 LEFT JOIN usuarios u ON u.id_usuario = r.id_usuario
+                 WHERE r.id_sala = %s
+                 AND r.data_reserva = %s
+                 AND r.status_reserva IN (%s, %s)
+                 AND r.hora_inicio < %s
+                 AND r.hora_fim > %s"""
 
         valores = (
             id_sala, data,
@@ -52,17 +54,25 @@ def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_
         )
 
         if id_reserva_ignorar is not None:
-            sql += " AND id_reserva != %s"
+            sql += " AND r.id_reserva != %s"
             valores += (id_reserva_ignorar,)
 
         cursor.execute(sql, valores)
 
-        return cursor.fetchone() is not None
+        return cursor.fetchall()
 
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
+
+
+def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
+    conflitos = obter_conflitos_horario(
+        id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar
+    )
+
+    return len(conflitos) > 0
 
 def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
@@ -277,6 +287,51 @@ def _definir_status_reserva(id_sala):
         return StatusReserva.CONFIRMADA
 
     return None
+
+
+def _papel_do_usuario(id_usuario):
+    usuario = usuarios_service.buscar_usuario_por_id(id_usuario)
+
+    if usuario is None:
+        return None
+
+    return usuario.role
+
+def _resolver_prioridade(papel_solicitante, conflitos):
+    """Decide se o solicitante pode ocupar o horário e quais reservas perdem o slot.
+
+    Retorna (permitido, ids_a_cancelar).
+
+    - Sem conflito: permitido, nada a cancelar.
+    - Só o Professor pode assumir o horário de outra reserva, e apenas de Alunos.
+    - Se qualquer reserva em conflito não for de Aluno (outro Professor, Admin),
+      vale a regra "quem reservou primeiro fica com o horário".
+    """
+    if not conflitos:
+        return True, []
+
+    if papel_solicitante != PapelUsuario.PROFESSOR:
+        return False, []
+
+    if any(c["papel"] != PapelUsuario.ALUNO for c in conflitos):
+        return False, []
+
+    return True, [c["id_reserva"] for c in conflitos]
+
+def _cancelar_reservas_substituidas(cursor, ids_reservas):
+    """Cancela, na transação do cursor recebido, as reservas que perderam o horário."""
+    if not ids_reservas:
+        return
+
+    marcadores = ", ".join(["%s"] * len(ids_reservas))
+
+    cursor.execute(
+        f"""UPDATE reservas SET status_reserva = %s
+            WHERE id_reserva IN ({marcadores})
+            AND status_reserva IN (%s, %s)""",
+        (StatusReserva.CANCELADA, *ids_reservas,
+         StatusReserva.CONFIRMADA, StatusReserva.PENDENTE)
+    )
 
 
 def aprovar_reserva(id_reserva, id_usuario):
