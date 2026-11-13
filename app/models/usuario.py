@@ -10,7 +10,7 @@ class Usuario:
         
     def validar_nome(self, tamanho_minimo=2):
         if not isinstance(self.nome, str) or len(self.nome.strip()) < tamanho_minimo:
-            raise ValueError(f"Nome deve ter pelo {tamanho_minimo} caracteres.")
+            raise ValueError(f"Nome deve ter pelo menos {tamanho_minimo} caracteres.")
 
     def validar_email(self):
         padrao = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
