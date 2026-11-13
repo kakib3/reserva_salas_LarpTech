@@ -367,7 +367,8 @@ def aprovar_reserva(id_reserva, id_usuario):
         cursor = conexao.cursor(dictionary=True)
 
         cursor.execute(
-            """SELECT id_sala, status_reserva
+            """SELECT id_usuario, id_sala, data_reserva, hora_inicio,
+                      hora_fim, status_reserva
                FROM reservas WHERE id_reserva = %s""",
             (id_reserva,)
         )
@@ -387,11 +388,27 @@ def aprovar_reserva(id_reserva, id_usuario):
     if not verificar_sala_disponivel(reserva["id_sala"]):
         return False
 
+    # A prioridade é do dono da reserva (e não do Admin que aprova): se ele for
+    # Professor, assume o horário das reservas de Alunos que ainda o ocupam.
+    conflitos = obter_conflitos_horario(
+        reserva["id_sala"], reserva["data_reserva"],
+        reserva["hora_inicio"], reserva["hora_fim"],
+        id_reserva_ignorar=id_reserva
+    )
+    permitido, ids_substituidos = _resolver_prioridade(
+        _papel_do_usuario(reserva["id_usuario"]), conflitos
+    )
+
+    if not permitido:
+        return False
+
     conexao = conectar_banco()
     cursor = None
 
     try:
         cursor = conexao.cursor()
+
+        _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
         cursor.execute(
             "UPDATE reservas SET status_reserva = %s WHERE id_reserva = %s",
