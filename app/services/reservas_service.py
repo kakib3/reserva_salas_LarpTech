@@ -91,13 +91,22 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
 
     _validar_reserva(reserva_obj)
 
-    if verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim):
+    conflitos = obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim)
+    permitido, ids_substituidos = _resolver_prioridade(
+        _papel_do_usuario(id_usuario), conflitos
+    )
+
+    if not permitido:
         return False
 
     status = _definir_status_reserva(id_sala)
 
     if status is None:
         return False
+
+    # Sala que exige aprovação: a reserva do Aluno só é substituída quando o Admin aprovar.
+    if status == StatusReserva.PENDENTE:
+        ids_substituidos = []
 
     reserva_obj.status = status
     reserva_obj.criado_em = date.today()
@@ -112,6 +121,8 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
 
     try:
         cursor = conexao.cursor()
+
+        _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
         cursor.execute("""INSERT INTO reservas
                        (id_usuario, id_sala, data_reserva, hora_inicio,
@@ -209,16 +220,25 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
     _validar_reserva(reserva_obj)
 
-    if verificar_conflito_horario(
+    conflitos = obter_conflitos_horario(
         nova_sala, nova_data, novo_inicio, novo_fim,
         id_reserva_ignorar=id_reserva
-    ):
+    )
+    permitido, ids_substituidos = _resolver_prioridade(
+        _papel_do_usuario(id_usuario), conflitos
+    )
+
+    if not permitido:
         return False
 
     status = _definir_status_reserva(nova_sala)
 
     if status is None:
         return False
+
+    # Sala que exige aprovação: a reserva do Aluno só é substituída quando o Admin aprovar.
+    if status == StatusReserva.PENDENTE:
+        ids_substituidos = []
 
     valores = (
         nova_sala, nova_data, novo_inicio,
@@ -230,6 +250,8 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
     try:
         cursor = conexao.cursor()
+
+        _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
         cursor.execute("""UPDATE reservas
                        SET id_sala = %s,
