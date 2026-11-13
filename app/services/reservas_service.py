@@ -266,6 +266,7 @@ def _validar_reserva(reserva):
     reserva.validar_intervalo()
     reserva.validar_horario_funcionamento()
     reserva.validar_dia_util()
+    reserva.validar_nao_passado()
 
 def _definir_status_reserva(id_sala):
     sala_tipo = descobre_tipo_sala(id_sala)

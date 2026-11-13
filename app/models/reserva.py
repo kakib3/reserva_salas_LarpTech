@@ -1,4 +1,5 @@
 from datetime import time, date
+from app.utils.relogio import agora
 
 class Reserva:
     def __init__(self, id, usuario_id, sala_id, data, hora_inicio, hora_fim, status, criado_em):
@@ -36,3 +37,12 @@ class Reserva:
             raise ValueError("A data da reserva deve ser um objeto do tipo 'date'.")
         if self.data.weekday() > 5:
             raise ValueError("As reservas só podem ser feitas em dias úteis e em sábados letivos.")
+    
+    def validar_nao_passado(self):
+        momento = agora()
+        
+        if self.data < momento.date():
+            raise ValueError("A data da reserva não pode estar no passado.")
+        
+        if self.data == momento.date() and self.hora_inicio <= momento.time().replace(tzinfo=None):
+            raise ValueError("O horário de início já passou.")
