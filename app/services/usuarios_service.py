@@ -1,5 +1,6 @@
 from app.models.conexao import conectar_banco
 from app.models.usuario import Usuario
+from app.utils.seguranca import gerar_hash_senha, verificar_senha
 
 
 def listar_usuarios(id_solicitante):
@@ -125,7 +126,7 @@ def criar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
             usuario_obj.email,
             usuario_obj.telefone,
             usuario_obj.role,
-            usuario_obj.senha,
+            gerar_hash_senha(usuario_obj.senha),
             usuario_obj.status
         )
         
@@ -148,7 +149,7 @@ def autenticar_usuario(email, senha):
     if usuario is None:
         return False  
 
-    if usuario.senha != senha:
+    if not verificar_senha(senha, usuario.senha):
         return False
     
     if usuario.status == "Inativo":       #verifica se é usuario inativo
@@ -246,7 +247,7 @@ def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
     if not usuario_atual:
         return False
 
-    if usuario_atual["senha"] != senha_atual:
+    if not verificar_senha(senha_atual, usuario_atual["senha"]):
         return False
         
     usuario_obj = Usuario(
@@ -266,7 +267,10 @@ def alterar_senha(id_solicitante, id_usuario, senha_atual, nova_senha):
 
     try:
         cursor = conexao.cursor()
-        cursor.execute("UPDATE usuarios SET senha = %s WHERE id_usuario = %s", (nova_senha, id_usuario))
+        cursor.execute(
+            "UPDATE usuarios SET senha = %s WHERE id_usuario = %s",
+            (gerar_hash_senha(nova_senha), id_usuario)
+        )
         conexao.commit()
         return True
     
