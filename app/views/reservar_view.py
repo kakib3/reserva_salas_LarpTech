@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date, time
 from app.controllers import reservas_controller, salas_controller
+from app.models.constantes import StatusReserva
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
 
@@ -77,7 +78,7 @@ def render():
             )
         )
 
-        if sucesso and reserva.esta_pendente:
+        if sucesso and reserva.status == StatusReserva.PENDENTE:
             st.info(mensagem)
 
         elif sucesso:
