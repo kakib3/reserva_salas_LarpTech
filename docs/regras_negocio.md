@@ -4,7 +4,7 @@ As regras abaixo definem como o sistema deve se comportar nas reservas, nos stat
 
 ## 1. Regras de reserva
 
-1. Uma sala só pode ser reservada por um usuário por vez no mesmo horário, sem sobreposição. Reservas canceladas não entram nessa verificação.
+1. Uma sala só pode ser reservada por um usuário por vez no mesmo horário, sem sobreposição. Reservas canceladas não entram nessa verificação. A única exceção é a prioridade do Professor sobre o Aluno (seção 4).
 2. O horário de início deve ser anterior ao horário de fim.
 3. A duração mínima de uma reserva é de 30 minutos.
 4. A duração máxima de uma reserva é de 4 horas.
@@ -49,10 +49,16 @@ As regras abaixo definem como o sistema deve se comportar nas reservas, nos stat
 *   Os **Admins** são os responsáveis por confirmar ou negar as reservas pendentes. Essa opção aparece na tela Home, na área de Pendências, e só é exibida para eles.
 *   Somente os **Admins** veem o botão de ocultar salas na tela Salas.
 *   Cadastrar, editar e desativar salas e usuários já existem na parte interna do sistema, mas ainda não têm tela.
-*   A prioridade dos professores sobre os alunos em caso de conflito estava prevista para uma etapa futura e ainda não foi implementada.
+*   **Prioridade do Professor sobre o Aluno:** quando uma reserva de Professor conflita com reservas de Alunos, o Professor assume o horário e as reservas dos Alunos passam para **Cancelada**, na mesma operação em que a reserva do Professor é gravada.
+    *   Em salas comuns e de reunião, isso acontece ao criar ou alterar a reserva.
+    *   Em laboratórios e auditórios, a reserva do Professor entra como Pendente e as reservas dos Alunos continuam ativas até um Admin aprovar. Só na aprovação elas são canceladas.
+    *   Se a reserva do Professor for negada, nenhuma reserva de Aluno é afetada.
+*   **Disputa entre Professores (ou contra um Admin):** vale quem reservou primeiro. O Professor não assume um horário já ocupado por outro Professor ou por um Admin.
+*   **Aluno nunca assume o horário de outra reserva.** Nesse caso vale a regra geral de conflito.
+*   **Limitação conhecida:** o Aluno que perde o horário **não é notificado**. A notificação depende do RF10, que ainda não foi implementado.
 
 ## 5. Regras técnicas
 
-1. Ao tentar criar uma reserva com conflito de horário, o sistema bloqueia a reserva e mostra uma mensagem de erro clara.
+1. Ao tentar criar uma reserva com conflito de horário, o sistema bloqueia a reserva e mostra uma mensagem de erro clara, exceto quando o Professor tem prioridade sobre os Alunos em conflito (seção 4).
 2. Ao cancelar uma reserva, o status muda para Cancelada. O registro não é apagado.
 3. Os dados devem ser consistentes entre os arquivos CSV, ou seja, os IDs usados em um arquivo precisam existir no arquivo de origem.

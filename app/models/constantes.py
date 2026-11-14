@@ -5,6 +5,11 @@ class StatusReserva:
     
     ATIVAS = (CONFIRMADA, PENDENTE)
     
+class PapelUsuario:
+    ALUNO = "Aluno"
+    PROFESSOR = "Professor"
+    ADMIN = "Admin"
+
 class StatusSala:
     DISPONIVEL = "Disponivel"
     MANUTENCAO = "Manutencao"
