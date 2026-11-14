@@ -1,23 +1,12 @@
 import streamlit as st
-from datetime import time
+
 from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
 from app.models.constantes import StatusReserva
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
-from app.utils.relogio import agora, hoje
-
-def _horarios_padrao(data_reserva):
-    """Devolve (inicio, fim) sugeridos, ou None se não houver horário hoje."""
-    if data_reserva != hoje():
-        return time(8,0), time(9,0)
-    
-    hora = max(agora().hour + 1, 7)
-    
-    if hora > 21:
-        return None
-    
-    return time(hora, 0), time(hora + 1, 0)
+from app.utils.relogio import hoje
+from app.utils.horarios import horarios_padrao
 
 def render():
     st.title("Reservar Sala")
@@ -70,7 +59,7 @@ def render():
         format="DD/MM/YYYY"
     )
 
-    padrao = _horarios_padrao(data_reserva)
+    padrao = horarios_padrao(data_reserva)
     
     if padrao is None:
         st.info("Não há mais horários disponíveis para hoje. Escolha outra data.")
