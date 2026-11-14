@@ -1,7 +1,21 @@
+
 from datetime import time, date
 
+from app.models.constantes import StatusReserva
+
+
 class Reserva:
-    def __init__(self, id, usuario_id, sala_id, data, hora_inicio, hora_fim, status, criado_em):
+    def __init__(
+        self,
+        id,
+        usuario_id,
+        sala_id,
+        data,
+        hora_inicio,
+        hora_fim,
+        status,
+        criado_em
+    ):
         self.id = id
         self.usuario_id = usuario_id
         self.sala_id = sala_id
@@ -11,28 +25,66 @@ class Reserva:
         self.status = status
         self.criado_em = criado_em
 
-    def validar_horario(self):
-        if not isinstance(self.hora_inicio, time) or not isinstance(self.hora_fim, time):
-            raise ValueError("Hora de início e hora de fim devem ser objetos do tipo 'time'.")
-        if self.hora_inicio >= self.hora_fim:
-            raise ValueError("Hora de início deve ser anterior à hora de fim.")
+    @property
+    def esta_pendente(self):
+        return self.status == StatusReserva.PENDENTE
 
-    def validar_intervalo(self, intervalo_minimo=30, intervalo_maximo=240):
-        duracao = (self.hora_fim.hour * 60 + self.hora_fim.minute) - (self.hora_inicio.hour * 60 + self.hora_inicio.minute)
+    def validar_horario(self):
+        if (
+            not isinstance(self.hora_inicio, time)
+            or not isinstance(self.hora_fim, time)
+        ):
+            raise ValueError(
+                "Hora de início e hora de fim devem ser objetos do tipo 'time'."
+            )
+
+        if self.hora_inicio >= self.hora_fim:
+            raise ValueError(
+                "Hora de início deve ser anterior à hora de fim."
+            )
+
+    def validar_intervalo(
+        self,
+        intervalo_minimo=30,
+        intervalo_maximo=240
+    ):
+        duracao = (
+            (self.hora_fim.hour * 60 + self.hora_fim.minute)
+            - (self.hora_inicio.hour * 60 + self.hora_inicio.minute)
+        )
+
         if duracao < intervalo_minimo:
-            raise ValueError(f"A duração da reserva deve ser de pelo menos {intervalo_minimo} minutos.")
+            raise ValueError(
+                f"A duração da reserva deve ser de pelo menos {intervalo_minimo} minutos."
+            )
+
         if duracao > intervalo_maximo:
-            raise ValueError("A duração da reserva não pode exceder 4 horas.")
+            raise ValueError(
+                "A duração da reserva não pode exceder 4 horas."
+            )
 
     def validar_horario_funcionamento(self):
         hora_abertura = time(7, 0)
         hora_fechamento = time(22, 0)
 
-        if self.hora_inicio < hora_abertura or self.hora_inicio > hora_fechamento or self.hora_fim < hora_abertura or self.hora_fim > hora_fechamento:
-            raise ValueError(f"Horário de reservas: {hora_abertura.strftime('%H:%M')} às {hora_fechamento.strftime('%H:%M')}.")
+        if (
+            self.hora_inicio < hora_abertura
+            or self.hora_inicio > hora_fechamento
+            or self.hora_fim < hora_abertura
+            or self.hora_fim > hora_fechamento
+        ):
+            raise ValueError(
+                f"Horário de reservas: {hora_abertura.strftime('%H:%M')} "
+                f"às {hora_fechamento.strftime('%H:%M')}."
+            )
 
     def validar_dia_util(self):
         if not isinstance(self.data, date):
-            raise ValueError("A data da reserva deve ser um objeto do tipo 'date'.")
+            raise ValueError(
+                "A data da reserva deve ser um objeto do tipo 'date'."
+            )
+
         if self.data.weekday() > 5:
-            raise ValueError("As reservas só podem ser feitas em dias úteis e em sábados letivos.")
+            raise ValueError(
+                "As reservas só podem ser feitas em dias úteis e em sábados letivos."
+            )
