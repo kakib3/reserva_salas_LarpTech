@@ -1,4 +1,5 @@
 from app.models.conexao import conectar_banco
+from app.utils.horarios import normalizar_horarios
 
 def carregar_usuarios():
     conexao = conectar_banco()
@@ -50,7 +51,12 @@ def carregar_reservas():
             
         cursor.execute("SELECT * FROM reservas;")
             
-        return cursor.fetchall()
+        reservas = cursor.fetchall()
+
+        for reserva in reservas:
+            normalizar_horarios(reserva)
+        
+        return reservas
         
     finally:
         if cursor is not None:
@@ -73,7 +79,12 @@ def obter_reservas_da_sala(id_sala, data=None):
             valores = (id_sala,)
 
         cursor.execute(sql, valores)
-        return cursor.fetchall()
+        reservas = cursor.fetchall()
+        
+        for reserva in reservas:
+            normalizar_horarios(reserva)
+        
+        return reservas
 
     finally:
         if cursor is not None:

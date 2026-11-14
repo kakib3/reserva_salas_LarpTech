@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date
+from app.utils.relogio import hoje
 from app.controllers import salas_controller
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
@@ -59,7 +59,7 @@ def render():
 
     data_consulta = st.date_input(
         "Selecione uma data",
-        value=date.today(),
+        value=hoje(),
         key="data_disponibilidade"
     )
 

@@ -1,9 +1,12 @@
 import streamlit as st
-from datetime import date, time
+
+from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
+from app.models.constantes import StatusReserva
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
-
+from app.utils.relogio import hoje
+from app.utils.horarios import horarios_padrao
 
 def render():
     st.title("Reservar Sala")
@@ -52,18 +55,28 @@ def render():
 
     data_reserva = st.date_input(
         "Data da reserva",
-        min_value=date.today(),
+        min_value= hoje(),
         format="DD/MM/YYYY"
     )
 
+    padrao = horarios_padrao(data_reserva)
+    
+    if padrao is None:
+        st.info("Não há mais horários disponíveis para hoje. Escolha outra data.")
+        return
+    
+    padrao_inicio, padrao_fim = padrao
+    
     hora_inicio = st.time_input(
         "Horário de início",
-        value=time(8, 0)
+        value = padrao_inicio,
+        key = f"inicio_{data_reserva}"
     )
-
+    
     hora_fim = st.time_input(
         "Horário de término",
-        value=time(9, 0)
+        value = padrao_fim,
+        key = f"fim_{data_reserva}"
     )
 
     if st.button("Confirmar reserva"):
@@ -77,7 +90,7 @@ def render():
             )
         )
 
-        if sucesso and reserva.esta_pendente:
+        if sucesso and reserva.status == StatusReserva.PENDENTE:
             st.info(mensagem)
 
         elif sucesso:

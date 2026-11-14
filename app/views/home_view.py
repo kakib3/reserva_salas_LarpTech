@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date
+from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
 from app.utils.sessao import usuario_logado
 
@@ -9,7 +9,7 @@ def render():
 
     st.title("LarpReserve")
     st.write(f"Bem-vindo, {usuario.nome}")
-    st.write(date.today().strftime("%d/%m/%Y"))
+    st.write(hoje().strftime("%d/%m/%Y"))
 
     col_reserva, col_disponiveis = st.columns(2)
 
@@ -19,7 +19,7 @@ def render():
 
         sucesso, mensagem, proxima = (
             reservas_controller.consultar_proxima_reserva(
-                usuario.id, date.today()
+                usuario.id, hoje()
             )
         )
 
@@ -80,7 +80,7 @@ def render():
 
                         with col_aprovar:
                             if st.button(
-                                "Reservar",
+                                "Aprovar",
                                 key=f"aprovar_{pendencia['id_reserva']}"
                             ):
                                 sucesso, mensagem, _ = (
@@ -98,7 +98,7 @@ def render():
 
                         with col_negar:
                             if st.button(
-                                "Cancelar",
+                                "Negar",
                                 key=f"negar_{pendencia['id_reserva']}"
                             ):
                                 sucesso, mensagem, _ = (

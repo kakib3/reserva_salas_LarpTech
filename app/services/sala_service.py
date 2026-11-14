@@ -3,7 +3,8 @@ from app.models.sala import Sala
 from app.services import usuarios_service
 from app.utils import salas_ocultas
 from app.models.constantes import StatusSala, StatusReserva
-from datetime import time, timedelta
+from datetime import time
+from app.utils.horarios import normalizar_horarios
 
 def listar_salas():
     conexao = conectar_banco()
@@ -244,17 +245,7 @@ def consultar_disponibilidade(id_sala, data_consulta, id_usuario=None):
 
         # Normaliza os horários retornados pelo MySQL
         for reserva in reservas:
-            for campo in ("hora_inicio", "hora_fim"):
-                valor = reserva[campo]
-
-                if isinstance(valor, timedelta):
-                    segundos = int(valor.total_seconds()) % 86400
-
-                    reserva[campo] = time(
-                        segundos // 3600,
-                        (segundos % 3600) // 60,
-                        segundos % 60
-                    )
+            normalizar_horarios(reserva)
 
     finally:
         if cursor is not None:
