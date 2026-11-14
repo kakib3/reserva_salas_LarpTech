@@ -1,219 +1,295 @@
 
-import pandas as pd
 import pytest
 
-from app.models.dados import _ler_csv, _salvar_csv
-from app.utils.excecoes import ErroDeDados
+from app.models import dados
 
 
-# ---------------------------------------------------------------------------
-# Leitura de CSV
-# ---------------------------------------------------------------------------
+# MOCKS DO BANCO DE DADOS
 
-def test_ler_csv_arquivo_inexistente(tmp_path):
-    arquivo = tmp_path / "usuarios.csv"
+class MockCursor:
+    def __init__(self, resultado=None, erro_execute=None, erro_fetchall=None):
+        self.resultado = resultado if resultado is not None else []
+        self.erro_execute = erro_execute
+        self.erro_fetchall = erro_fetchall
 
-    with pytest.raises(ErroDeDados, match="não foi encontrado"):
-        _ler_csv(arquivo)
+        self.sql_executado = None
+        self.valores = None
+        self.fechado = False
+
+    def execute(self, sql, valores=None):
+        self.sql_executado = sql
+        self.valores = valores
+
+        if self.erro_execute:
+            raise self.erro_execute
+
+    def fetchall(self):
+        if self.erro_fetchall:
+            raise self.erro_fetchall
+
+        return self.resultado
+
+    def close(self):
+        self.fechado = True
 
 
-def test_ler_csv_arquivo_vazio(tmp_path):
-    arquivo = tmp_path / "usuarios.csv"
-    arquivo.write_text("", encoding="utf-8")
+class MockConexao:
+    def __init__(self, resultado=None, erro_execute=None, erro_fetchall=None):
+        self.mock_cursor = MockCursor(
+            resultado,
+            erro_execute,
+            erro_fetchall,
+        )
 
-    with pytest.raises(ErroDeDados, match="está vazio"):
-        _ler_csv(arquivo)
+        self.fechado = False
+        self.dictionary_utilizado = False
+
+    def cursor(self, dictionary=False, **kwargs):
+        self.dictionary_utilizado = dictionary
+        return self.mock_cursor
+
+    def close(self):
+        self.fechado = True
 
 
-def test_ler_csv_arquivo_malformado(tmp_path):
-    arquivo = tmp_path / "usuarios.csv"
-    arquivo.write_text(
-        "idUser;nome;email;telefone;role;senha;status\n"
-        "1;Joao;joao@email.com;999;Aluno;123;Ativo\n"
-        "2;Maria;email;999;Aluno;123;Ativo;campo_extra\n",
-        encoding="utf-8"
+def configurar_conexao(monkeypatch, conexao):
+    monkeypatch.setattr(
+        dados,
+        "conectar_banco",
+        lambda: conexao,
     )
 
-    with pytest.raises(ErroDeDados, match="está malformado"):
-        _ler_csv(arquivo)
+
+def verificar_fechamento(conexao):
+    assert conexao.mock_cursor.fechado is True
+    assert conexao.fechado is True
+
+# CARREGAR USUÁRIOS
+
+def test_carregar_usuarios_retorna_lista_de_usuarios(monkeypatch):
+    usuarios = [
+        {
+            "id_usuario": 1,
+            "nome": "Joao",
+            "email": "joao@email.com",
+            "telefone": "69999999999",
+            "papel": "Aluno",
+            "status_usuario": "Ativo",
+        },
+        {
+            "id_usuario": 2,
+            "nome": "Maria",
+            "email": "maria@email.com",
+            "telefone": "69888888888",
+            "papel": "Admin",
+            "status_usuario": "Ativo",
+        },
+    ]
+
+    conexao = MockConexao(resultado=usuarios)
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.carregar_usuarios()
+
+    assert resultado == usuarios
+    assert conexao.dictionary_utilizado is True
+
+    sql = conexao.mock_cursor.sql_executado
+
+    assert "FROM usuarios" in sql
+    assert "id_usuario" in sql
+    assert "nome" in sql
+    assert "email" in sql
+    assert "telefone" in sql
+    assert "papel" in sql
+    assert "status_usuario" in sql
+
+    verificar_fechamento(conexao)
 
 
-def test_ler_csv_com_colunas_ausentes(tmp_path):
-    arquivo = tmp_path / "usuarios.csv"
-    arquivo.write_text(
-        "idUser;nome;email\n"
-        "1;Joao;joao@email.com\n",
-        encoding="utf-8"
+def test_carregar_usuarios_sem_registros(monkeypatch):
+    conexao = MockConexao(resultado=[])
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.carregar_usuarios()
+
+    assert resultado == []
+
+    verificar_fechamento(conexao)
+
+# CARREGAR SALAS
+
+def test_carregar_salas_retorna_lista_de_salas(monkeypatch):
+    salas = [
+        {
+            "id_sala": 1,
+            "nome": "Sala 01",
+            "capacidade": 30,
+            "status_sala": "Disponivel",
+        },
+        {
+            "id_sala": 2,
+            "nome": "Laboratorio 01",
+            "capacidade": 25,
+            "status_sala": "Disponivel",
+        },
+    ]
+
+    conexao = MockConexao(resultado=salas)
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.carregar_salas()
+
+    assert resultado == salas
+    assert conexao.dictionary_utilizado is True
+    assert "SELECT * FROM salas" in conexao.mock_cursor.sql_executado
+
+    verificar_fechamento(conexao)
+
+
+def test_carregar_salas_sem_registros(monkeypatch):
+    conexao = MockConexao(resultado=[])
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.carregar_salas()
+
+    assert resultado == []
+
+    verificar_fechamento(conexao)
+
+# CARREGAR RESERVAS
+
+def test_carregar_reservas_retorna_lista_de_reservas(monkeypatch):
+    reservas = [
+        {
+            "id_reserva": 1,
+            "id_usuario": 10,
+            "id_sala": 2,
+            "status_reserva": "Confirmada",
+        },
+        {
+            "id_reserva": 2,
+            "id_usuario": 11,
+            "id_sala": 6,
+            "status_reserva": "Pendente",
+        },
+    ]
+
+    conexao = MockConexao(resultado=reservas)
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.carregar_reservas()
+
+    assert resultado == reservas
+    assert conexao.dictionary_utilizado is True
+    assert "SELECT * FROM reservas" in conexao.mock_cursor.sql_executado
+
+    verificar_fechamento(conexao)
+
+
+def test_carregar_reservas_sem_registros(monkeypatch):
+    conexao = MockConexao(resultado=[])
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.carregar_reservas()
+
+    assert resultado == []
+
+    verificar_fechamento(conexao)
+
+# OBTER RESERVAS DE UMA SALA
+
+def test_obter_reservas_da_sala_sem_data(monkeypatch):
+    reservas = [
+        {
+            "id_reserva": 1,
+            "id_sala": 3,
+            "status_reserva": "Confirmada",
+        },
+        {
+            "id_reserva": 2,
+            "id_sala": 3,
+            "status_reserva": "Pendente",
+        },
+    ]
+
+    conexao = MockConexao(resultado=reservas)
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.obter_reservas_da_sala(3)
+
+    assert resultado == reservas
+
+    sql = conexao.mock_cursor.sql_executado
+
+    assert "WHERE id_sala = %s" in sql
+    assert "data_reserva" not in sql
+    assert conexao.mock_cursor.valores == (3,)
+
+    verificar_fechamento(conexao)
+
+
+def test_obter_reservas_da_sala_com_data(monkeypatch):
+    data_reserva = "2026-11-16"
+
+    reservas = [
+        {
+            "id_reserva": 1,
+            "id_sala": 3,
+            "data_reserva": data_reserva,
+        }
+    ]
+
+    conexao = MockConexao(resultado=reservas)
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.obter_reservas_da_sala(
+        3,
+        data_reserva,
     )
 
-    with pytest.raises(ErroDeDados, match="está incompleto"):
-        _ler_csv(arquivo)
+    assert resultado == reservas
+
+    sql = conexao.mock_cursor.sql_executado
+
+    assert "id_sala = %s" in sql
+    assert "data_reserva = %s" in sql
+    assert conexao.mock_cursor.valores == (3, data_reserva)
+
+    verificar_fechamento(conexao)
 
 
-def test_ler_csv_tipo_de_arquivo_nao_reconhecido(tmp_path):
-    arquivo = tmp_path / "outro.csv"
-    arquivo.write_text(
-        "id;nome\n1;Joao\n",
-        encoding="utf-8"
+def test_obter_reservas_da_sala_sem_resultados(monkeypatch):
+    conexao = MockConexao(resultado=[])
+    configurar_conexao(monkeypatch, conexao)
+
+    resultado = dados.obter_reservas_da_sala(999)
+
+    assert resultado == []
+
+    verificar_fechamento(conexao)
+
+# TRATAMENTO DE ERROS E LIBERAÇÃO DE RECURSOS
+
+def test_erro_durante_execucao_da_consulta_fecha_conexao(monkeypatch):
+    conexao = MockConexao(
+        erro_execute=RuntimeError("Erro simulado na consulta"),
     )
+    configurar_conexao(monkeypatch, conexao)
 
-    with pytest.raises(ErroDeDados, match="não reconhecido"):
-        _ler_csv(arquivo)
+    with pytest.raises(RuntimeError, match="Erro simulado"):
+        dados.carregar_usuarios()
 
-
-def test_ler_csv_valido(tmp_path):
-    arquivo = tmp_path / "salas.csv"
-
-    df_original = pd.DataFrame({
-        "idSala": [1],
-        "nome": ["Sala 01"],
-        "capacidade": [30],
-        "predio": ["Bloco A"],
-        "andar": ["1"],
-        "status": ["Disponível"],
-        "tipoSala": ["Comum"]
-    })
-
-    df_original.to_csv(arquivo, sep=";", index=False)
-
-    resultado = _ler_csv(arquivo)
-
-    df_original["andar"] = pd.to_numeric(df_original["andar"])
-
-    pd.testing.assert_frame_equal(
-        resultado,
-        df_original,
-        check_dtype=False
-)
-    
+    verificar_fechamento(conexao)
 
 
-def test_ler_csv_preserva_senha_e_telefone_como_texto(tmp_path):
-    arquivo = tmp_path / "usuarios.csv"
-
-    arquivo.write_text(
-        "idUser;nome;email;telefone;role;senha;status\n"
-        "1;Joao;joao@email.com;06999999999;Aluno;001234;Ativo\n",
-        encoding="utf-8"
+def test_erro_durante_fetchall_fecha_conexao(monkeypatch):
+    conexao = MockConexao(
+        erro_fetchall=RuntimeError("Erro simulado ao buscar registros"),
     )
+    configurar_conexao(monkeypatch, conexao)
 
-    resultado = _ler_csv(
-        arquivo,
-        dtype={"senha": str, "telefone": str}
-    )
+    with pytest.raises(RuntimeError, match="Erro simulado"):
+        dados.carregar_salas()
 
-    assert resultado.iloc[0]["senha"] == "001234"
-    assert resultado.iloc[0]["telefone"] == "06999999999"
-
-    assert isinstance(resultado.iloc[0]["senha"], str)
-    assert isinstance(resultado.iloc[0]["telefone"], str)
-
-
-def test_ler_csv_sem_permissao(tmp_path, monkeypatch):
-    arquivo = tmp_path / "usuarios.csv"
-
-    def falhar_leitura(*args, **kwargs):
-        raise PermissionError("Acesso negado")
-
-    monkeypatch.setattr(pd, "read_csv", falhar_leitura)
-
-    with pytest.raises(ErroDeDados, match="Sem permissão"):
-        _ler_csv(arquivo)
-
-
-def test_salvar_csv_grava_corretamente(tmp_path):
-    arquivo = tmp_path / "usuarios.csv"
-
-    df = pd.DataFrame({
-        "idUser": [1, 2],
-        "nome": ["Joao", "Maria"]
-    })
-
-    _salvar_csv(df, arquivo)
-
-    resultado = pd.read_csv(arquivo, sep=";")
-
-    pd.testing.assert_frame_equal(resultado, df)
-
-
-def test_salvar_csv_cria_diretorio_inexistente(tmp_path):
-    arquivo = tmp_path / "nova_pasta" / "usuarios.csv"
-
-    df = pd.DataFrame({
-        "idUser": [1],
-        "nome": ["Joao"]
-    })
-
-    _salvar_csv(df, arquivo)
-
-    assert arquivo.exists()
-
-
-def test_salvar_csv_sem_permissao(tmp_path, monkeypatch):
-    arquivo = tmp_path / "usuarios.csv"
-
-    df = pd.DataFrame({
-        "idUser": [1],
-        "nome": ["Joao"]
-    })
-
-    def falhar_gravacao(*args, **kwargs):
-        raise PermissionError("Acesso negado")
-
-    monkeypatch.setattr(pd.DataFrame, "to_csv", falhar_gravacao)
-
-    with pytest.raises(ErroDeDados, match="Sem permissão"):
-        _salvar_csv(df, arquivo)
-
-
-def test_salvar_csv_falha_no_replace_preserva_original(
-    tmp_path,
-    monkeypatch
-):
-    arquivo = tmp_path / "usuarios.csv"
-
-    arquivo.write_text(
-        "idUser;nome\n1;Original\n",
-        encoding="utf-8"
-    )
-
-    conteudo_original = arquivo.read_text(encoding="utf-8")
-
-    df = pd.DataFrame({
-        "idUser": [2],
-        "nome": ["Novo"]
-    })
-
-    def falhar_replace(*args, **kwargs):
-        raise OSError("Falha simulada")
-
-    monkeypatch.setattr("app.models.dados.os.replace", falhar_replace)
-
-    with pytest.raises(ErroDeDados, match="Não foi possível gravar"):
-        _salvar_csv(df, arquivo)
-
-    assert arquivo.read_text(encoding="utf-8") == conteudo_original
-
-
-def test_salvar_csv_remove_temporario_apos_falha(
-    tmp_path,
-    monkeypatch
-):
-    arquivo = tmp_path / "usuarios.csv"
-
-    df = pd.DataFrame({
-        "idUser": [1],
-        "nome": ["Joao"]
-    })
-
-    def falhar_replace(*args, **kwargs):
-        raise OSError("Falha simulada")
-
-    monkeypatch.setattr("app.models.dados.os.replace", falhar_replace)
-
-    with pytest.raises(ErroDeDados):
-        _salvar_csv(df, arquivo)
-
-    temporarios = list(tmp_path.glob(".usuarios_*.tmp"))
-
-    assert temporarios == []
+    verificar_fechamento(conexao)
