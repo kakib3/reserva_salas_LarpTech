@@ -44,5 +44,5 @@ class Reserva:
         if self.data < momento.date():
             raise ValueError("A data da reserva não pode estar no passado.")
         
-        if self.data == momento.date() and self.hora_inicio <= momento.time():
+        if self.data == momento.date() and self.hora_inicio < momento.time():
             raise ValueError("O horário de início já passou.")
