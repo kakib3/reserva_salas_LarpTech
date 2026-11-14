@@ -1,5 +1,5 @@
 import streamlit as st
-from app.utils.relogio import hoje, agora
+from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
 from app.utils.sessao import usuario_logado
 
@@ -19,7 +19,7 @@ def render():
 
         sucesso, mensagem, proxima = (
             reservas_controller.consultar_proxima_reserva(
-                usuario.id, agora()
+                usuario.id, hoje()
             )
         )
 
