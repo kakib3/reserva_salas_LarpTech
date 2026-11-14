@@ -135,11 +135,3 @@ def consultar_disponibilidade(id_sala, data_consulta, id_usuario = None):
         return False, "Sala não encontrada.", None
 
     return True, "", resultado
-
-@tratar_erro_de_dados
-def pode_gerenciar_pendencias(id_usuario):
-    resultado = reservas_service.pode_gerenciar_pendencias(
-        id_usuario
-    )
-
-    return True, "", resultado
