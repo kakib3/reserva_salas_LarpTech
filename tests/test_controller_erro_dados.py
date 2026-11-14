@@ -1,54 +1,126 @@
-"""Cada controller deve devolver (False, mensagem_amigavel, None) quando o service
-levanta ErroDeDados. Estes testes importam os controllers reais do projeto."""
+
 import pytest
-import pandas as pd
+from mysql.connector import Error as MySQLError
 
-from app.utils.excecoes import ErroDeDados
-from app.controllers import reservas_controller, salas_controller, usuarios_controller
+from app.utils.excecoes import MENSAGEM_ERRO_BANCO
+from app.controllers import (
+    reservas_controller,
+    salas_controller,
+    usuarios_controller
+)
 
-MSG = "Os dados estão ilegíveis no momento."
+
+MSG_ERRO = "Falha simulada no banco de dados."
 
 
-def _falha(*args, **kwargs):
-    raise ErroDeDados(MSG)
+def _falha_banco(*args, **kwargs):
+    raise MySQLError(MSG_ERRO)
 
 
 @pytest.mark.parametrize(
     "controller, funcao_service, chamada",
     [
-        (reservas_controller, "criar_reserva", lambda c: c.reservar_sala(1, "S1", None, None, None)),
-        (reservas_controller, "cancelar_reserva", lambda c: c.cancelar_reserva("R1", 1)),
-        (reservas_controller, "alterar_reserva", lambda c: c.alterar_reserva("R1", 1, "S1", None, None, None)),
-        (reservas_controller, "aprovar_reserva", lambda c: c.aprovar_reserva("R1", 1)),
-        (reservas_controller, "negar_reserva", lambda c: c.negar_reserva("R1", 1)),
-        (usuarios_controller, "autenticar_usuario", lambda c: c.fazer_login("a@b.c", "x")),
+        (
+            reservas_controller,
+            "criar_reserva",
+            lambda c: c.reservar_sala(1, 1, None, None, None)
+        ),
+        (
+            reservas_controller,
+            "cancelar_reserva",
+            lambda c: c.cancelar_reserva(1, 1)
+        ),
+        (
+            reservas_controller,
+            "alterar_reserva",
+            lambda c: c.alterar_reserva(1, 1, 1, None, None, None)
+        ),
+        (
+            reservas_controller,
+            "aprovar_reserva",
+            lambda c: c.aprovar_reserva(1, 1)
+        ),
+        (
+            reservas_controller,
+            "negar_reserva",
+            lambda c: c.negar_reserva(1, 1)
+        ),
+        (
+            usuarios_controller,
+            "autenticar_usuario",
+            lambda c: c.fazer_login("teste@email.com", "1234")
+        ),
     ],
 )
+def test_controller_converte_erro_mysql(
+    monkeypatch,
+    controller,
+    funcao_service,
+    chamada
+):
+    service = (
+        getattr(controller, "reservas_service", None)
+        or getattr(controller, "usuarios_service")
+    )
 
-def test_controller_converte_erro_de_dados(monkeypatch, controller, funcao_service, chamada):
-    service = getattr(controller, "reservas_service", None) or getattr(controller, "usuarios_service")
+    monkeypatch.setattr(
+        service,
+        funcao_service,
+        _falha_banco
+    )
 
-    # Simula um administrador para permitir chegar ao service.
-    if funcao_service == "aprovar_reserva":
-        monkeypatch.setattr(
-            controller.usuarios_service,
-            "checar_admin",
-            lambda id_usuario: True
-        )
+    resultado = chamada(controller)
 
-        # Evita depender dos dados reais do CSV.
-        monkeypatch.setattr(
-            controller,
-            "carregar_reservas",
-            lambda: pd.DataFrame(columns=["idReserva", "idSala"])
-        )
-
-    monkeypatch.setattr(service, funcao_service, _falha)
-
-    assert chamada(controller) == (False, MSG, None)
+    assert resultado == (
+        False,
+        MENSAGEM_ERRO_BANCO,
+        None
+    )
 
 
-def test_ocultar_sala_converte_erro_de_dados(monkeypatch):
-    monkeypatch.setattr(salas_controller.sala_service, "ocultar_sala", _falha)
-    assert salas_controller.ocultar_sala("S1", 1) == (False, MSG, None)
-    
+def test_ocultar_sala_converte_erro_mysql(monkeypatch):
+    monkeypatch.setattr(
+        salas_controller.sala_service,
+        "ocultar_sala",
+        _falha_banco
+    )
+
+    resultado = salas_controller.ocultar_sala(1, 1)
+
+    assert resultado == (
+        False,
+        MENSAGEM_ERRO_BANCO,
+        None
+    )
+
+
+def test_mostrar_sala_converte_erro_mysql(monkeypatch):
+    monkeypatch.setattr(
+        salas_controller.sala_service,
+        "mostrar_sala",
+        _falha_banco
+    )
+
+    resultado = salas_controller.mostrar_sala(1, 1)
+
+    assert resultado == (
+        False,
+        MENSAGEM_ERRO_BANCO,
+        None
+    )
+
+
+def test_obter_sala_converte_erro_mysql(monkeypatch):
+    monkeypatch.setattr(
+        salas_controller.sala_service,
+        "buscar_sala_por_id",
+        _falha_banco
+    )
+
+    resultado = salas_controller.obter_sala(1)
+
+    assert resultado == (
+        False,
+        MENSAGEM_ERRO_BANCO,
+        None
+    )
