@@ -1,18 +1,23 @@
+
 import pytest
+from mysql.connector import Error as MySQLError
 
-from app.utils.excecoes import ErroDeDados, tratar_erro_de_dados
+from app.utils.excecoes import (
+    MENSAGEM_ERRO_BANCO,
+    tratar_erro_de_dados
+)
 
 
-def test_erro_de_dados_nao_herda_de_valueerror_nem_oserror():
-    assert not issubclass(ErroDeDados, (ValueError, OSError))
-
-
-def test_decorator_converte_erro_de_dados_em_tupla_padrao():
+def test_decorator_converte_erro_mysql_em_tupla_padrao():
     @tratar_erro_de_dados
     def funcao():
-        raise ErroDeDados("Dados ilegíveis.")
+        raise MySQLError("Falha simulada.")
 
-    assert funcao() == (False, "Dados ilegíveis.", None)
+    assert funcao() == (
+        False,
+        MENSAGEM_ERRO_BANCO,
+        None
+    )
 
 
 def test_decorator_preserva_retorno_normal():
@@ -23,23 +28,27 @@ def test_decorator_preserva_retorno_normal():
     assert funcao(7) == (True, "ok", 7)
 
 
-def test_decorator_nao_engole_outras_excecoes():
+def test_decorator_nao_engole_value_error():
     @tratar_erro_de_dados
     def funcao():
-        raise ValueError("regra de negócio")
+        raise ValueError("Regra de negócio.")
 
     with pytest.raises(ValueError):
         funcao()
 
 
-def test_erro_de_dados_passa_pelo_except_valueerror_do_controller():
-    """Um except ValueError dentro do controller não pode interceptar ErroDeDados."""
-
+def test_decorator_nao_engole_permission_error():
     @tratar_erro_de_dados
-    def controller():
-        try:
-            raise ErroDeDados("Falha no armazenamento.")
-        except ValueError:
-            return False, "REGRA DE NEGÓCIO", None
+    def funcao():
+        raise PermissionError("Acesso negado.")
 
-    assert controller() == (False, "Falha no armazenamento.", None)
+    with pytest.raises(PermissionError):
+        funcao()
+
+
+def test_decorator_preserva_nome_da_funcao():
+    @tratar_erro_de_dados
+    def minha_funcao():
+        return True
+
+    assert minha_funcao.__name__ == "minha_funcao"
