@@ -5,6 +5,7 @@ from app.utils.relogio import hoje
 from app.services import usuarios_service
 from app.utils import salas_ocultas
 from app.models.constantes import StatusReserva, StatusSala, TipoSala
+from app.utils.horarios import normalizar_horarios
 
 def verificar_sala_disponivel(id_sala):
     conexao = conectar_banco()
@@ -401,7 +402,7 @@ def consultar_proxima_reserva(id_usuario, data_atual):
         resultado = cursor.fetchone()
 
         if resultado:
-            _normalizar_horarios(resultado)
+            normalizar_horarios(resultado)
 
         return resultado
 
@@ -445,7 +446,7 @@ def consultar_reservas_pendentes(id_solicitante):
         resultado = cursor.fetchall()
 
         for reserva in resultado:
-            _normalizar_horarios(reserva)
+            normalizar_horarios(reserva)
 
         return resultado
 
@@ -483,7 +484,7 @@ def consultar_reservas_usuario(id_usuario):
         resultado = cursor.fetchall()
 
         for reserva in resultado:
-            _normalizar_horarios(reserva)
+            normalizar_horarios(reserva)
             reserva["pode_alterar"] = reserva["status_reserva"] in StatusReserva.ATIVAS
 
         return resultado
@@ -498,19 +499,3 @@ def consultar_reservas_usuario(id_usuario):
 def pode_gerenciar_pendencias(id_usuario):
     return usuarios_service.checar_admin(id_usuario)
 
-
-def _normalizar_horarios(reserva):
-    for campo in ("hora_inicio", "hora_fim"):
-        valor = reserva.get(campo)
-
-        if isinstance(valor, timedelta):
-            segundos = int(valor.total_seconds()) % 86400
-
-            reserva[campo] = time(
-                segundos // 3600,
-                (segundos % 3600) // 60,
-                segundos % 60
-            )
-            
-def pode_gerenciar_pendencias(id_usuario):
-    return usuarios_service.checar_admin(id_usuario)
