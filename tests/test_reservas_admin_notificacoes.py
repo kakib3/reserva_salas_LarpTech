@@ -34,6 +34,9 @@ class FakeCursor:
 
     def fetchone(self):
         return self.dados
+    
+    def fetchall(self):
+        return []
 
     def close(self):
         pass
@@ -76,6 +79,11 @@ def test_aprovar_reserva_notifica_usuario(monkeypatch):
         "verificar_sala_disponivel",
         lambda id_sala: True
     )
+    monkeypatch.setattr(
+    reservas_service,
+    "obter_conflitos_horario",
+    lambda *args, **kwargs: []
+)
 
     chamadas = []
 
@@ -163,6 +171,16 @@ def test_decisao_admin_nao_depende_do_envio_email(
         reservas_service,
         "conectar_banco",
         lambda: next(conexoes)
+    )
+    monkeypatch.setattr(
+        reservas_service,
+        "verificar_sala_disponivel",
+        lambda id_sala: True
+    )
+    monkeypatch.setattr(
+        reservas_service,
+        "obter_conflitos_horario",
+        lambda *args, **kwargs: []
     )
     monkeypatch.setattr(
         reservas_service,

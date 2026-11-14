@@ -15,6 +15,9 @@ class FakeCursor:
 
     def close(self):
         pass
+    
+    def fetchall(self):
+        return []
 
 
 class FakeConexao:
@@ -23,7 +26,7 @@ class FakeConexao:
         self.commitado = False
         self.fechado = False
 
-    def cursor(self):
+    def cursor(self, **kwargs):
         return self.cursor_fake
 
     def commit(self):

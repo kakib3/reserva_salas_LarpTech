@@ -4,7 +4,7 @@ from datetime import date, time, timedelta
 
 from app.models.conexao import conectar_banco
 from app.models.reserva import Reserva
-from app.models.constantes import StatusReserva, StatusSala, TipoSala
+from app.models.constantes import PapelUsuario, StatusReserva, StatusSala, TipoSala
 from app.services import usuarios_service
 from app.utils import salas_ocultas
 from app.messaging import notificacoes_service
@@ -38,26 +38,28 @@ def verificar_sala_disponivel(id_sala):
         conexao.close()
 
 
-def verificar_conflito_horario(
+def obter_conflitos_horario(
     id_sala,
     data,
     hora_inicio,
     hora_fim,
     id_reserva_ignorar=None
 ):
+    """Retorna as reservas ativas que se sobrepõem ao horário, com o papel do dono de cada uma."""
     conexao = conectar_banco()
     cursor = None
 
     try:
         cursor = conexao.cursor(dictionary=True)
 
-        sql = """SELECT id_reserva
-                 FROM reservas
-                 WHERE id_sala = %s
-                 AND data_reserva = %s
-                 AND status_reserva IN (%s, %s)
-                 AND hora_inicio < %s
-                 AND hora_fim > %s"""
+        sql = """SELECT r.id_reserva, u.papel
+                 FROM reservas r
+                 LEFT JOIN usuarios u ON u.id_usuario = r.id_usuario
+                 WHERE r.id_sala = %s
+                 AND r.data_reserva = %s
+                 AND r.status_reserva IN (%s, %s)
+                 AND r.hora_inicio < %s
+                 AND r.hora_fim > %s"""
 
         valores = (
             id_sala,
@@ -69,18 +71,25 @@ def verificar_conflito_horario(
         )
 
         if id_reserva_ignorar is not None:
-            sql += " AND id_reserva != %s"
+            sql += " AND r.id_reserva != %s"
             valores += (id_reserva_ignorar,)
 
         cursor.execute(sql, valores)
 
-        return cursor.fetchone() is not None
+        return cursor.fetchall()
 
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
 
+
+def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
+    conflitos = obter_conflitos_horario(
+        id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar
+    )
+
+    return len(conflitos) > 0
 
 def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
@@ -105,18 +114,22 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
 
     _validar_reserva(reserva_obj)
 
-    if verificar_conflito_horario(
-        id_sala,
-        data,
-        hora_inicio,
-        hora_fim
-    ):
+    conflitos = obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim)
+    permitido, ids_substituidos = _resolver_prioridade(
+        _papel_do_usuario(id_usuario), conflitos
+    )
+
+    if not permitido:
         return False
 
     status = _definir_status_reserva(id_sala)
 
     if status is None:
         return False
+
+    # Sala que exige aprovação: a reserva do Aluno só é substituída quando o Admin aprovar.
+    if status == StatusReserva.PENDENTE:
+        ids_substituidos = []
 
     reserva_obj.status = status
     reserva_obj.criado_em = date.today()
@@ -137,13 +150,12 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     try:
         cursor = conexao.cursor()
 
-        cursor.execute(
-            """INSERT INTO reservas
-               (id_usuario, id_sala, data_reserva, hora_inicio,
-                hora_fim, status_reserva, criado_em)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            valores
-        )
+        _cancelar_reservas_substituidas(cursor, ids_substituidos)
+
+        cursor.execute("""INSERT INTO reservas
+                       (id_usuario, id_sala, data_reserva, hora_inicio,
+                       hora_fim, status_reserva, criado_em)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""", valores)
 
         conexao.commit()
         reserva_obj.id = cursor.lastrowid
@@ -283,19 +295,25 @@ def alterar_reserva(
 
     _validar_reserva(reserva_obj)
 
-    if verificar_conflito_horario(
-        nova_sala,
-        nova_data,
-        novo_inicio,
-        novo_fim,
+    conflitos = obter_conflitos_horario(
+        nova_sala, nova_data, novo_inicio, novo_fim,
         id_reserva_ignorar=id_reserva
-    ):
+    )
+    permitido, ids_substituidos = _resolver_prioridade(
+        _papel_do_usuario(id_usuario), conflitos
+    )
+
+    if not permitido:
         return False
 
     status = _definir_status_reserva(nova_sala)
 
     if status is None:
         return False
+
+    # Sala que exige aprovação: a reserva do Aluno só é substituída quando o Admin aprovar.
+    if status == StatusReserva.PENDENTE:
+        ids_substituidos = []
 
     valores = (
         nova_sala,
@@ -314,6 +332,8 @@ def alterar_reserva(
     try:
         cursor = conexao.cursor()
 
+        _cancelar_reservas_substituidas(cursor, ids_substituidos)
+        
         cursor.execute(
             """UPDATE reservas
                SET id_sala = %s,
@@ -385,6 +405,51 @@ def _definir_status_reserva(id_sala):
     return None
 
 
+def _papel_do_usuario(id_usuario):
+    usuario = usuarios_service.buscar_usuario_por_id(id_usuario)
+
+    if usuario is None:
+        return None
+
+    return usuario.role
+
+def _resolver_prioridade(papel_solicitante, conflitos):
+    """Decide se o solicitante pode ocupar o horário e quais reservas perdem o slot.
+
+    Retorna (permitido, ids_a_cancelar).
+
+    - Sem conflito: permitido, nada a cancelar.
+    - Só o Professor pode assumir o horário de outra reserva, e apenas de Alunos.
+    - Se qualquer reserva em conflito não for de Aluno (outro Professor, Admin),
+      vale a regra "quem reservou primeiro fica com o horário".
+    """
+    if not conflitos:
+        return True, []
+
+    if papel_solicitante != PapelUsuario.PROFESSOR:
+        return False, []
+
+    if any(c["papel"] != PapelUsuario.ALUNO for c in conflitos):
+        return False, []
+
+    return True, [c["id_reserva"] for c in conflitos]
+
+def _cancelar_reservas_substituidas(cursor, ids_reservas):
+    """Cancela, na transação do cursor recebido, as reservas que perderam o horário."""
+    if not ids_reservas:
+        return
+
+    marcadores = ", ".join(["%s"] * len(ids_reservas))
+
+    cursor.execute(
+        f"""UPDATE reservas SET status_reserva = %s
+            WHERE id_reserva IN ({marcadores})
+            AND status_reserva IN (%s, %s)""",
+        (StatusReserva.CANCELADA, *ids_reservas,
+         StatusReserva.CONFIRMADA, StatusReserva.PENDENTE)
+    )
+
+
 def aprovar_reserva(id_reserva, id_usuario):
     if not usuarios_service.checar_admin(id_usuario):
         return False
@@ -419,11 +484,30 @@ def aprovar_reserva(id_reserva, id_usuario):
     if not verificar_sala_disponivel(dados["id_sala"]):
         return False
 
+    # A prioridade é do dono da reserva (e não do Admin que aprova): se ele for
+    # Professor, assume o horário das reservas de Alunos que ainda o ocupam.    
+    conflitos = obter_conflitos_horario(
+        dados["id_sala"],
+        dados["data_reserva"],
+        dados["hora_inicio"],
+        dados["hora_fim"],
+        id_reserva_ignorar=id_reserva
+    )
+
+    permitido, ids_substituidos = _resolver_prioridade(
+        _papel_do_usuario(dados["id_usuario"]), conflitos
+    )
+
+    if not permitido:
+        return False
+
     conexao = conectar_banco()
     cursor = None
 
     try:
         cursor = conexao.cursor()
+
+        _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
         cursor.execute(
             """UPDATE reservas
