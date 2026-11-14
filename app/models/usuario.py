@@ -26,6 +26,11 @@ class Usuario:
         if self.role not in Usuario.ROLES_VALIDAS:
             raise ValueError(f"Role invalida. Deve ser uma das: {', '.join(Usuario.ROLES_VALIDAS)}.")
 
-    def validar_senha(self, tamanho_minimo=4):
+    def validar_senha(self, tamanho_minimo=8, tamanho_maximo_bytes=72):
         if not isinstance(self.senha, str) or len(self.senha) < tamanho_minimo:
             raise ValueError(f"Senha deve ter pelo menos {tamanho_minimo} caracteres.")
+        if not re.search(r"[A-Za-z]", self.senha) or not re.search(r"\d", self.senha):
+            raise ValueError("A senha deve conter pelo menos uma letra e um número.")
+        # O bcrypt só aceita até 72 bytes; acima disso a geração do hash falha.
+        if len(self.senha.encode("utf-8")) > tamanho_maximo_bytes:
+            raise ValueError(f"Senha deve ter no máximo {tamanho_maximo_bytes} bytes.")

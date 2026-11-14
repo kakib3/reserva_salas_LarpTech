@@ -1,12 +1,23 @@
+
+import logging
+
 from app.models.conexao import conectar_banco
 from app.models.reserva import Reserva
-from datetime import time, timedelta
-from app.utils.relogio import hoje
+from app.models.constantes import (
+    PapelUsuario,
+    StatusReserva,
+    StatusSala,
+    TipoSala,
+)
 from app.services import usuarios_service
 from app.utils import salas_ocultas
-from app.models.constantes import StatusReserva, StatusSala, TipoSala
+from app.utils.relogio import hoje
 from app.utils.horarios import normalizar_horarios
-from app.models.constantes import PapelUsuario, StatusReserva, StatusSala, TipoSala
+from app.messaging import notificacoes_service
+
+
+logger = logging.getLogger(__name__)
+
 
 def verificar_sala_disponivel(id_sala):
     conexao = conectar_banco()
@@ -19,6 +30,7 @@ def verificar_sala_disponivel(id_sala):
             "SELECT status_sala FROM salas WHERE id_sala = %s",
             (id_sala,)
         )
+
         resultado = cursor.fetchone()
 
         if not resultado:
@@ -32,8 +44,15 @@ def verificar_sala_disponivel(id_sala):
         conexao.close()
 
 
-def obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
-    """Retorna as reservas ativas que se sobrepõem ao horário, com o papel do dono de cada uma."""
+def obter_conflitos_horario(
+    id_sala,
+    data,
+    hora_inicio,
+    hora_fim,
+    id_reserva_ignorar=None
+):
+    """Retorna reservas ativas que se sobrepõem ao horário informado."""
+
     conexao = conectar_banco()
     cursor = None
 
@@ -50,10 +69,12 @@ def obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ign
                  AND r.hora_fim > %s"""
 
         valores = (
-            id_sala, data,
+            id_sala,
+            data,
             StatusReserva.CONFIRMADA,
             StatusReserva.PENDENTE,
-            hora_fim, hora_inicio
+            hora_fim,
+            hora_inicio
         )
 
         if id_reserva_ignorar is not None:
@@ -70,12 +91,23 @@ def obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ign
         conexao.close()
 
 
-def verificar_conflito_horario(id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar=None):
+def verificar_conflito_horario(
+    id_sala,
+    data,
+    hora_inicio,
+    hora_fim,
+    id_reserva_ignorar=None
+):
     conflitos = obter_conflitos_horario(
-        id_sala, data, hora_inicio, hora_fim, id_reserva_ignorar
+        id_sala,
+        data,
+        hora_inicio,
+        hora_fim,
+        id_reserva_ignorar
     )
 
     return len(conflitos) > 0
+
 
 def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
@@ -88,15 +120,28 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
         return False
 
     reserva_obj = Reserva(
-        None, id_usuario, id_sala, data,
-        hora_inicio, hora_fim, None, None
+        None,
+        id_usuario,
+        id_sala,
+        data,
+        hora_inicio,
+        hora_fim,
+        None,
+        None
     )
 
     _validar_reserva(reserva_obj)
 
-    conflitos = obter_conflitos_horario(id_sala, data, hora_inicio, hora_fim)
+    conflitos = obter_conflitos_horario(
+        id_sala,
+        data,
+        hora_inicio,
+        hora_fim
+    )
+
     permitido, ids_substituidos = _resolver_prioridade(
-        _papel_do_usuario(id_usuario), conflitos
+        _papel_do_usuario(id_usuario),
+        conflitos
     )
 
     if not permitido:
@@ -107,7 +152,8 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     if status is None:
         return False
 
-    # Sala que exige aprovação: a reserva do Aluno só é substituída quando o Admin aprovar.
+    # Em salas que exigem aprovação, reservas de alunos
+    # só são substituídas quando a reserva do professor é aprovada.
     if status == StatusReserva.PENDENTE:
         ids_substituidos = []
 
@@ -115,8 +161,13 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
     reserva_obj.criado_em = hoje()
 
     valores = (
-        id_usuario, id_sala, data, hora_inicio,
-        hora_fim, status, reserva_obj.criado_em
+        id_usuario,
+        id_sala,
+        data,
+        hora_inicio,
+        hora_fim,
+        status,
+        reserva_obj.criado_em
     )
 
     conexao = conectar_banco()
@@ -127,23 +178,39 @@ def criar_reserva(id_usuario, id_sala, data, hora_inicio, hora_fim):
 
         _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
-        cursor.execute("""INSERT INTO reservas
-                       (id_usuario, id_sala, data_reserva, hora_inicio,
-                       hora_fim, status_reserva, criado_em)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)""", valores)
+        cursor.execute(
+            """INSERT INTO reservas
+               (id_usuario, id_sala, data_reserva, hora_inicio,
+                hora_fim, status_reserva, criado_em)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            valores
+        )
 
         conexao.commit()
         reserva_obj.id = cursor.lastrowid
-
-        return reserva_obj
 
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
 
+    # A notificação só acontece depois que a reserva é persistida.
+    if status == StatusReserva.CONFIRMADA:
+        _tentar_notificar(
+            notificacoes_service.notificar_reserva_confirmada,
+            reserva_obj
+        )
 
-def cancelar_reserva(id_reserva,id_usuario):
+    elif status == StatusReserva.PENDENTE:
+        _tentar_notificar(
+            notificacoes_service.notificar_reserva_pendente,
+            reserva_obj
+        )
+
+    return reserva_obj
+
+
+def cancelar_reserva(id_reserva, id_usuario):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
         return False
 
@@ -155,9 +222,11 @@ def cancelar_reserva(id_reserva,id_usuario):
 
         cursor.execute(
             """SELECT id_usuario, status_reserva
-               FROM reservas WHERE id_reserva = %s""",
+               FROM reservas
+               WHERE id_reserva = %s""",
             (id_reserva,)
         )
+
         reserva = cursor.fetchone()
 
         if not reserva:
@@ -170,9 +239,22 @@ def cancelar_reserva(id_reserva,id_usuario):
             return False
 
         cursor.execute(
-            "UPDATE reservas SET status_reserva = %s WHERE id_reserva = %s",
-            (StatusReserva.CANCELADA, id_reserva)
+            """UPDATE reservas
+               SET status_reserva = %s
+               WHERE id_reserva = %s
+               AND id_usuario = %s
+               AND status_reserva IN (%s, %s)""",
+            (
+                StatusReserva.CANCELADA,
+                id_reserva,
+                id_usuario,
+                StatusReserva.CONFIRMADA,
+                StatusReserva.PENDENTE
+            )
         )
+
+        if cursor.rowcount == 0:
+            return False
 
         conexao.commit()
         return True
@@ -182,7 +264,15 @@ def cancelar_reserva(id_reserva,id_usuario):
             cursor.close()
         conexao.close()
 
-def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, novo_fim):
+
+def alterar_reserva(
+    id_reserva,
+    id_usuario,
+    nova_sala,
+    nova_data,
+    novo_inicio,
+    novo_fim
+):
     if not usuarios_service.checar_usuario_ativo(id_usuario):
         return False
 
@@ -194,9 +284,11 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
         cursor.execute(
             """SELECT id_usuario, status_reserva
-               FROM reservas WHERE id_reserva = %s""",
+               FROM reservas
+               WHERE id_reserva = %s""",
             (id_reserva,)
         )
+
         reserva = cursor.fetchone()
 
     finally:
@@ -216,19 +308,33 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     if not verificar_sala_disponivel(nova_sala):
         return False
 
+    if salas_ocultas.esta_oculta(nova_sala):
+        return False
+
     reserva_obj = Reserva(
-        id_reserva, id_usuario, nova_sala, nova_data,
-        novo_inicio, novo_fim, reserva["status_reserva"], None
+        id_reserva,
+        id_usuario,
+        nova_sala,
+        nova_data,
+        novo_inicio,
+        novo_fim,
+        reserva["status_reserva"],
+        None
     )
 
     _validar_reserva(reserva_obj)
 
     conflitos = obter_conflitos_horario(
-        nova_sala, nova_data, novo_inicio, novo_fim,
+        nova_sala,
+        nova_data,
+        novo_inicio,
+        novo_fim,
         id_reserva_ignorar=id_reserva
     )
+
     permitido, ids_substituidos = _resolver_prioridade(
-        _papel_do_usuario(id_usuario), conflitos
+        _papel_do_usuario(id_usuario),
+        conflitos
     )
 
     if not permitido:
@@ -239,13 +345,18 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
     if status is None:
         return False
 
-    # Sala que exige aprovação: a reserva do Aluno só é substituída quando o Admin aprovar.
     if status == StatusReserva.PENDENTE:
         ids_substituidos = []
 
     valores = (
-        nova_sala, nova_data, novo_inicio,
-        novo_fim, status, id_reserva
+        nova_sala,
+        nova_data,
+        novo_inicio,
+        novo_fim,
+        status,
+        id_reserva,
+        id_usuario,
+        reserva["status_reserva"]
     )
 
     conexao = conectar_banco()
@@ -256,13 +367,21 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
 
         _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
-        cursor.execute("""UPDATE reservas
-                       SET id_sala = %s,
-                       data_reserva = %s,
-                       hora_inicio = %s,
-                       hora_fim = %s,
-                       status_reserva = %s
-                       WHERE id_reserva = %s""", valores)
+        cursor.execute(
+            """UPDATE reservas
+               SET id_sala = %s,
+                   data_reserva = %s,
+                   hora_inicio = %s,
+                   hora_fim = %s,
+                   status_reserva = %s
+               WHERE id_reserva = %s
+               AND id_usuario = %s
+               AND status_reserva = %s""",
+            valores
+        )
+
+        if cursor.rowcount == 0:
+            return False
 
         conexao.commit()
         return True
@@ -272,7 +391,9 @@ def alterar_reserva(id_reserva, id_usuario, nova_sala, nova_data, novo_inicio, n
             cursor.close()
         conexao.close()
 
-#Métodos Utilitários
+
+# Métodos utilitários
+
 def descobre_tipo_sala(id_sala):
     conexao = conectar_banco()
     cursor = None
@@ -284,6 +405,7 @@ def descobre_tipo_sala(id_sala):
             "SELECT tipo_sala FROM salas WHERE id_sala = %s",
             (id_sala,)
         )
+
         sala = cursor.fetchone()
 
         if sala:
@@ -296,12 +418,14 @@ def descobre_tipo_sala(id_sala):
             cursor.close()
         conexao.close()
 
+
 def _validar_reserva(reserva):
     reserva.validar_horario()
     reserva.validar_intervalo()
     reserva.validar_horario_funcionamento()
     reserva.validar_dia_util()
     reserva.validar_nao_passado()
+
 
 def _definir_status_reserva(id_sala):
     sala_tipo = descobre_tipo_sala(id_sala)
@@ -323,40 +447,55 @@ def _papel_do_usuario(id_usuario):
 
     return usuario.role
 
+
 def _resolver_prioridade(papel_solicitante, conflitos):
-    """Decide se o solicitante pode ocupar o horário e quais reservas perdem o slot.
+    """Decide se o solicitante pode ocupar o horário e quais reservas cancelar.
 
-    Retorna (permitido, ids_a_cancelar).
-
-    - Sem conflito: permitido, nada a cancelar.
-    - Só o Professor pode assumir o horário de outra reserva, e apenas de Alunos.
-    - Se qualquer reserva em conflito não for de Aluno (outro Professor, Admin),
-      vale a regra "quem reservou primeiro fica com o horário".
+    Regras:
+    - Sem conflito: permitido.
+    - Apenas o Professor pode assumir o horário de outra reserva,
+      e somente quando as reservas conflitantes pertencem a Alunos.
+    - Se existir conflito com outro Professor ou Admin,
+      prevalece a regra de quem reservou primeiro.
     """
+
     if not conflitos:
         return True, []
 
     if papel_solicitante != PapelUsuario.PROFESSOR:
         return False, []
 
-    if any(c["papel"] != PapelUsuario.ALUNO for c in conflitos):
+    if any(
+        conflito["papel"] != PapelUsuario.ALUNO
+        for conflito in conflitos
+    ):
         return False, []
 
-    return True, [c["id_reserva"] for c in conflitos]
+    return True, [
+        conflito["id_reserva"]
+        for conflito in conflitos
+    ]
+
 
 def _cancelar_reservas_substituidas(cursor, ids_reservas):
-    """Cancela, na transação do cursor recebido, as reservas que perderam o horário."""
+    """Cancela reservas substituídas dentro da transação recebida."""
+
     if not ids_reservas:
         return
 
     marcadores = ", ".join(["%s"] * len(ids_reservas))
 
     cursor.execute(
-        f"""UPDATE reservas SET status_reserva = %s
+        f"""UPDATE reservas
+            SET status_reserva = %s
             WHERE id_reserva IN ({marcadores})
             AND status_reserva IN (%s, %s)""",
-        (StatusReserva.CANCELADA, *ids_reservas,
-         StatusReserva.CONFIRMADA, StatusReserva.PENDENTE)
+        (
+            StatusReserva.CANCELADA,
+            *ids_reservas,
+            StatusReserva.CONFIRMADA,
+            StatusReserva.PENDENTE
+        )
     )
 
 
@@ -371,36 +510,42 @@ def aprovar_reserva(id_reserva, id_usuario):
         cursor = conexao.cursor(dictionary=True)
 
         cursor.execute(
-            """SELECT id_usuario, id_sala, data_reserva, hora_inicio,
-                      hora_fim, status_reserva
-               FROM reservas WHERE id_reserva = %s""",
+            """SELECT id_usuario, id_sala, data_reserva,
+                      hora_inicio, hora_fim, status_reserva, criado_em
+               FROM reservas
+               WHERE id_reserva = %s""",
             (id_reserva,)
         )
-        reserva = cursor.fetchone()
+
+        dados = cursor.fetchone()
 
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
 
-    if not reserva:
+    if not dados:
         return False
 
-    if reserva["status_reserva"] != StatusReserva.PENDENTE:
+    if dados["status_reserva"] != StatusReserva.PENDENTE:
         return False
 
-    if not verificar_sala_disponivel(reserva["id_sala"]):
+    if not verificar_sala_disponivel(dados["id_sala"]):
         return False
 
-    # A prioridade é do dono da reserva (e não do Admin que aprova): se ele for
-    # Professor, assume o horário das reservas de Alunos que ainda o ocupam.
+    # A prioridade é do dono da reserva, não do Admin que aprova.
+    # Se o dono for Professor, poderá assumir horários de Alunos.
     conflitos = obter_conflitos_horario(
-        reserva["id_sala"], reserva["data_reserva"],
-        reserva["hora_inicio"], reserva["hora_fim"],
+        dados["id_sala"],
+        dados["data_reserva"],
+        dados["hora_inicio"],
+        dados["hora_fim"],
         id_reserva_ignorar=id_reserva
     )
+
     permitido, ids_substituidos = _resolver_prioridade(
-        _papel_do_usuario(reserva["id_usuario"]), conflitos
+        _papel_do_usuario(dados["id_usuario"]),
+        conflitos
     )
 
     if not permitido:
@@ -415,17 +560,38 @@ def aprovar_reserva(id_reserva, id_usuario):
         _cancelar_reservas_substituidas(cursor, ids_substituidos)
 
         cursor.execute(
-            "UPDATE reservas SET status_reserva = %s WHERE id_reserva = %s",
-            (StatusReserva.CONFIRMADA, id_reserva)
+            """UPDATE reservas
+               SET status_reserva = %s
+               WHERE id_reserva = %s
+               AND status_reserva = %s""",
+            (
+                StatusReserva.CONFIRMADA,
+                id_reserva,
+                StatusReserva.PENDENTE
+            )
         )
 
+        if cursor.rowcount == 0:
+            return False
+
         conexao.commit()
-        return True
 
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
+
+    dados["status_reserva"] = StatusReserva.CONFIRMADA
+
+    reserva_obj = _montar_objeto_reserva(id_reserva, dados)
+
+    _tentar_notificar(
+        notificacoes_service.notificar_reserva_aprovada,
+        reserva_obj
+    )
+
+    return True
+
 
 def negar_reserva(id_reserva, id_usuario):
     if not usuarios_service.checar_admin(id_usuario):
@@ -438,30 +604,57 @@ def negar_reserva(id_reserva, id_usuario):
         cursor = conexao.cursor(dictionary=True)
 
         cursor.execute(
-            "SELECT status_reserva FROM reservas WHERE id_reserva = %s",
+            """SELECT id_usuario, id_sala, data_reserva,
+                      hora_inicio, hora_fim, status_reserva, criado_em
+               FROM reservas
+               WHERE id_reserva = %s""",
             (id_reserva,)
         )
-        reserva = cursor.fetchone()
 
-        if not reserva:
+        dados = cursor.fetchone()
+
+        if not dados:
             return False
 
-        if reserva["status_reserva"] != StatusReserva.PENDENTE:
+        if dados["status_reserva"] != StatusReserva.PENDENTE:
             return False
 
         cursor.execute(
-            "UPDATE reservas SET status_reserva = %s WHERE id_reserva = %s",
-            (StatusReserva.CANCELADA, id_reserva)
+            """UPDATE reservas
+               SET status_reserva = %s
+               WHERE id_reserva = %s
+               AND status_reserva = %s""",
+            (
+                StatusReserva.CANCELADA,
+                id_reserva,
+                StatusReserva.PENDENTE
+            )
         )
 
+        if cursor.rowcount == 0:
+            return False
+
         conexao.commit()
-        return True
 
     finally:
         if cursor is not None:
             cursor.close()
         conexao.close()
-        
+
+    dados["status_reserva"] = StatusReserva.CANCELADA
+
+    reserva_obj = _montar_objeto_reserva(id_reserva, dados)
+
+    _tentar_notificar(
+        notificacoes_service.notificar_reserva_recusada,
+        reserva_obj
+    )
+
+    return True
+
+
+# Consultas utilizadas pelas views
+
 def consultar_proxima_reserva(id_usuario, data_atual):
     conexao = conectar_banco()
     cursor = None
@@ -480,7 +673,7 @@ def consultar_proxima_reserva(id_usuario, data_atual):
                       r.status_reserva
                FROM reservas r
                INNER JOIN salas s
-               ON s.id_sala = r.id_sala
+                   ON s.id_sala = r.id_sala
                WHERE r.id_usuario = %s
                AND r.status_reserva IN (%s, %s)
                AND r.data_reserva >= %s
@@ -504,7 +697,6 @@ def consultar_proxima_reserva(id_usuario, data_atual):
     finally:
         if cursor is not None:
             cursor.close()
-
         conexao.close()
 
 
@@ -530,9 +722,9 @@ def consultar_reservas_pendentes(id_solicitante):
                       r.status_reserva
                FROM reservas r
                INNER JOIN salas s
-               ON s.id_sala = r.id_sala
+                   ON s.id_sala = r.id_sala
                LEFT JOIN usuarios u
-               ON u.id_usuario = r.id_usuario
+                   ON u.id_usuario = r.id_usuario
                WHERE r.status_reserva = %s
                ORDER BY r.data_reserva, r.hora_inicio""",
             (StatusReserva.PENDENTE,)
@@ -548,7 +740,6 @@ def consultar_reservas_pendentes(id_solicitante):
     finally:
         if cursor is not None:
             cursor.close()
-
         conexao.close()
 
 
@@ -570,7 +761,7 @@ def consultar_reservas_usuario(id_usuario):
                       r.status_reserva
                FROM reservas r
                LEFT JOIN salas s
-               ON s.id_sala = r.id_sala
+                   ON s.id_sala = r.id_sala
                WHERE r.id_usuario = %s
                ORDER BY r.data_reserva DESC, r.hora_inicio DESC""",
             (id_usuario,)
@@ -580,17 +771,48 @@ def consultar_reservas_usuario(id_usuario):
 
         for reserva in resultado:
             normalizar_horarios(reserva)
-            reserva["pode_alterar"] = reserva["status_reserva"] in StatusReserva.ATIVAS
+
+            reserva["pode_alterar"] = (
+                reserva["status_reserva"] in StatusReserva.ATIVAS
+            )
 
         return resultado
 
     finally:
         if cursor is not None:
             cursor.close()
-
         conexao.close()
 
 
 def pode_gerenciar_pendencias(id_usuario):
     return usuarios_service.checar_admin(id_usuario)
 
+
+# Helpers da mensageria
+
+def _tentar_notificar(funcao_notificacao, reserva):
+    """Evita que uma falha na notificação comprometa a operação principal."""
+
+    try:
+        funcao_notificacao(reserva)
+
+    except Exception:
+        logger.exception(
+            "Falha ao enviar notificação da reserva %s.",
+            getattr(reserva, "id", None)
+        )
+
+
+def _montar_objeto_reserva(id_reserva, dados):
+    """Reconstrói o objeto Reserva a partir dos dados retornados pelo MySQL."""
+
+    return Reserva(
+        id_reserva,
+        dados["id_usuario"],
+        dados["id_sala"],
+        dados["data_reserva"],
+        dados["hora_inicio"],
+        dados["hora_fim"],
+        dados["status_reserva"],
+        dados.get("criado_em")
+    )

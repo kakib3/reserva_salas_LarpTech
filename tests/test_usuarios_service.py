@@ -1,456 +1,693 @@
-import shutil
-import unittest
-import pandas as pd  # [NOVO] usado nas comparações de DataFrame
 
-from app.models.dados import DATA_DIR, carregar_usuarios
+import pytest
+
 from app.services import usuarios_service
 
 
-def _buscar_usuario(admin, ativo=True):
-    usuarios = carregar_usuarios()
-    filtro = (usuarios["role"] == "Admin") if admin else (usuarios["role"] != "Admin")
-    filtro &= (usuarios["status"] != "Inativo") if ativo else (usuarios["status"] == "Inativo")
-    achados = usuarios[filtro]
-    return achados.iloc[0] if not achados.empty else None
+# ============================================================
+# BANCO DE DADOS SIMULADO
+# ============================================================
+
+class BancoFake:
+    def __init__(self):
+        self.usuarios = [
+            {
+                "id_usuario": 1,
+                "nome": "Administrador",
+                "email": "admin@email.com",
+                "telefone": "69999999999",
+                "papel": "Admin",
+                "senha": "Admin@123",
+                "status_usuario": "Ativo",
+            },
+            {
+                "id_usuario": 2,
+                "nome": "Aluno Teste",
+                "email": "aluno@email.com",
+                "telefone": "69988888888",
+                "papel": "Aluno",
+                "senha": "Aluno@123",
+                "status_usuario": "Ativo",
+            },
+            {
+                "id_usuario": 3,
+                "nome": "Professor Teste",
+                "email": "prof@email.com",
+                "telefone": "69977777777",
+                "papel": "Professor",
+                "senha": "Prof@123",
+                "status_usuario": "Ativo",
+            },
+        ]
+
+        self.proximo_id = 4
+
+    def conectar(self):
+        return ConexaoFake(self)
 
 
-def _campo_usuario(id_usuario, campo):
-    usuarios = carregar_usuarios()
-    return usuarios[usuarios["idUser"] == id_usuario].iloc[0][campo]
+class ConexaoFake:
+    def __init__(self, banco):
+        self.banco = banco
+        self.fechada = False
+        self.commits = 0
+
+    def cursor(self, dictionary=False):
+        return CursorFake(self.banco)
+
+    def commit(self):
+        self.commits += 1
+
+    def close(self):
+        self.fechada = True
 
 
-def _definir_status_usuario(id_usuario, status):
-    usuarios = carregar_usuarios()
-    usuarios.loc[usuarios["idUser"] == id_usuario, "status"] = status
-    usuarios.to_csv(DATA_DIR / "usuarios.csv", sep=";", index=False)
+class CursorFake:
+    def __init__(self, banco):
+        self.banco = banco
+        self.resultado = []
+        self.fechado = False
+
+    def execute(self, sql, valores=None):
+        valores = valores or ()
+        sql = " ".join(sql.split())
+
+        # Buscar todos os usuários
+        if "FROM usuarios" in sql and "WHERE" not in sql:
+            campos = [
+            "id_usuario",
+            "nome",
+            "email",
+            "telefone",
+            "papel",
+            "status_usuario",
+        ]
+
+            self.resultado = [
+                {
+                    campo: usuario[campo]
+                    for campo in campos
+                }
+                for usuario in self.banco.usuarios
+            ]
+
+        # Buscar usuário por ID
+        elif "SELECT * FROM usuarios WHERE id_usuario" in sql:
+            id_usuario = valores[0]
+
+            self.resultado = [
+                usuario.copy()
+                for usuario in self.banco.usuarios
+                if usuario["id_usuario"] == id_usuario
+            ]
+
+        # Buscar usuário por email
+        elif "SELECT * FROM usuarios WHERE email" in sql:
+            email = valores[0]
+
+            self.resultado = [
+                usuario.copy()
+                for usuario in self.banco.usuarios
+                if usuario["email"] == email
+            ]
+
+        # Verificar email disponível
+        elif "SELECT id_usuario FROM usuarios WHERE email" in sql:
+            email = valores[0]
+
+            if len(valores) == 2:
+                id_ignorado = valores[1]
+                self.resultado = [
+                    {"id_usuario": usuario["id_usuario"]}
+                    for usuario in self.banco.usuarios
+                    if usuario["email"] == email
+                    and usuario["id_usuario"] != id_ignorado
+                ]
+            else:
+                self.resultado = [
+                    {"id_usuario": usuario["id_usuario"]}
+                    for usuario in self.banco.usuarios
+                    if usuario["email"] == email
+                ]
+
+        # Buscar administradores ativos
+        elif "SELECT id_usuario FROM usuarios WHERE papel = 'Admin'" in sql:
+            self.resultado = [
+                {"id_usuario": usuario["id_usuario"]}
+                for usuario in self.banco.usuarios
+                if usuario["papel"] == "Admin"
+                and usuario["status_usuario"] == "Ativo"
+            ]
+
+        # Buscar status de um usuário
+        elif "SELECT status_usuario FROM usuarios" in sql:
+            id_usuario = valores[0]
+
+            self.resultado = [
+                {"status_usuario": usuario["status_usuario"]}
+                for usuario in self.banco.usuarios
+                if usuario["id_usuario"] == id_usuario
+            ]
+
+        # Inserir usuário
+        elif "INSERT INTO usuarios" in sql:
+            nome, email, telefone, papel, senha, status = valores
+
+            self.banco.usuarios.append({
+                "id_usuario": self.banco.proximo_id,
+                "nome": nome,
+                "email": email,
+                "telefone": telefone,
+                "papel": papel,
+                "senha": senha,
+                "status_usuario": status,
+            })
+
+            self.banco.proximo_id += 1
+            self.resultado = []
+
+        # Atualizar dados do usuário
+        elif "UPDATE usuarios SET nome" in sql:
+            nome, email, telefone, papel, id_usuario = valores
+
+            for usuario in self.banco.usuarios:
+                if usuario["id_usuario"] == id_usuario:
+                    usuario["nome"] = nome
+                    usuario["email"] = email
+                    usuario["telefone"] = telefone
+                    usuario["papel"] = papel
+
+            self.resultado = []
+
+        # Atualizar senha
+        elif "UPDATE usuarios SET senha" in sql:
+            senha, id_usuario = valores
+
+            for usuario in self.banco.usuarios:
+                if usuario["id_usuario"] == id_usuario:
+                    usuario["senha"] = senha
+
+            self.resultado = []
+
+        # Desativar usuário
+        elif "UPDATE usuarios SET status_usuario" in sql:
+            status, id_usuario = valores
+
+            for usuario in self.banco.usuarios:
+                if usuario["id_usuario"] == id_usuario:
+                    usuario["status_usuario"] = status
+
+            self.resultado = []
+
+        else:
+            raise AssertionError(f"SQL não previsto no teste: {sql}")
+
+    def fetchall(self):
+        return self.resultado
+
+    def fetchone(self):
+        return self.resultado[0] if self.resultado else None
+
+    def close(self):
+        self.fechado = True
 
 
-# [NOVO] Helpers dos testes complementares
-def _definir_role_usuario(id_usuario, role):
-    usuarios = carregar_usuarios()
-    usuarios.loc[usuarios["idUser"] == id_usuario, "role"] = role
-    usuarios.to_csv(DATA_DIR / "usuarios.csv", sep=";", index=False)
+@pytest.fixture
+def banco(monkeypatch):
+    banco_fake = BancoFake()
+
+    monkeypatch.setattr(
+        usuarios_service,
+        "conectar_banco",
+        banco_fake.conectar,
+    )
+
+    return banco_fake
 
 
-def _definir_senha_usuario(id_usuario, senha):
-    usuarios = carregar_usuarios()
-    usuarios.loc[usuarios["idUser"] == id_usuario, "senha"] = senha
-    usuarios.to_csv(DATA_DIR / "usuarios.csv", sep=";", index=False)
+# ============================================================
+# BUSCA DE USUÁRIOS
+# ============================================================
+
+def test_buscar_usuario_por_id(banco):
+    usuario = usuarios_service.buscar_usuario_por_id(2)
+
+    assert usuario is not None
+    assert usuario.id == 2
+    assert usuario.nome == "Aluno Teste"
+    assert usuario.role == "Aluno"
 
 
-def _manter_apenas_este_admin_ativo(id_admin):
-    """Desativa todos os outros Admins, para o teste não depender do seed."""
-    usuarios = carregar_usuarios()
-    outros_admins = (usuarios["role"] == "Admin") & (usuarios["idUser"] != id_admin)
-    usuarios.loc[outros_admins, "status"] = "Inativo"
-    usuarios.to_csv(DATA_DIR / "usuarios.csv", sep=";", index=False)
+def test_buscar_usuario_inexistente(banco):
+    usuario = usuarios_service.buscar_usuario_por_id(999)
+
+    assert usuario is None
 
 
-class BaseUsuariosTest(unittest.TestCase):
-    """Faz backup do usuarios.csv, restaura ao final e separa um Admin e um usuário comum ativos."""
+def test_buscar_usuario_por_email(banco):
+    usuario = usuarios_service.buscar_usuario_por_email("aluno@email.com")
 
-    def setUp(self):
-        arquivo = DATA_DIR / "usuarios.csv"
-        backup = DATA_DIR / "usuarios_backup.csv"
-        shutil.copy(arquivo, backup)
-        self.addCleanup(self._restaurar, arquivo, backup)
-
-        self.admin = _buscar_usuario(admin=True)
-        self.comum = _buscar_usuario(admin=False)
-
-        if self.admin is None or self.comum is None:
-            self.skipTest("É preciso ter um Admin ativo e um usuário comum ativo no usuarios.csv")
-
-        self.id_admin = int(self.admin["idUser"])
-        self.id_comum = int(self.comum["idUser"])
-
-    @staticmethod
-    def _restaurar(arquivo, backup):
-        shutil.copy(backup, arquivo)
-        backup.unlink()
+    assert usuario is not None
+    assert usuario.email == "aluno@email.com"
 
 
-EMAIL_TESTE = "teste.auth@example.com"
-TELEFONE_TESTE = "11999999999"   # ajuste se o validar_telefone exigir outro formato
-SENHA_TESTE = "Senha@123"        # ajuste se o validar_senha exigir outro formato
+def test_buscar_email_inexistente(banco):
+    usuario = usuarios_service.buscar_usuario_por_email("inexistente@email.com")
+
+    assert usuario is None
 
 
-class TestAutorizacaoUsuarios(BaseUsuariosTest):
+def test_listar_usuarios_como_admin(banco):
+    usuarios = usuarios_service.listar_usuarios(1)
 
-    # --- deve ser negado -------------------------------------------------
+    assert len(usuarios) == 3
+    assert all("senha" not in usuario for usuario in usuarios)
 
-    def test_usuario_comum_nao_vira_admin(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.alterar_usuario(
-                self.id_comum, self.id_comum,
-                self.comum["nome"], self.comum["email"], self.comum["telefone"], "Admin"
-            )
 
-        self.assertEqual(_campo_usuario(self.id_comum, "role"), self.comum["role"])
+def test_usuario_comum_nao_lista_usuarios(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.listar_usuarios(2)
 
-    def test_usuario_comum_nao_edita_outro_usuario(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.alterar_usuario(
-                self.id_comum, self.id_admin,
-                self.admin["nome"], self.admin["email"], self.admin["telefone"], self.admin["role"]
-            )
 
-    def test_usuario_comum_nao_troca_senha_de_outro(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.alterar_senha(
-                self.id_comum, self.id_admin, self.admin["senha"], SENHA_TESTE
-            )
+# ============================================================
+# VERIFICAÇÃO DE EMAIL
+# ============================================================
 
-    def test_usuario_comum_nao_desativa_outro(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.desativar_usuario(self.id_comum, self.id_admin)
+def test_email_novo_esta_disponivel(banco):
+    assert usuarios_service.verificar_email_disponivel(
+        "novo@email.com"
+    ) is True
 
-        self.assertNotEqual(_campo_usuario(self.id_admin, "status"), "Inativo")
 
-    def test_admin_nao_desativa_a_si_mesmo(self):
-        with self.assertRaises(ValueError):
-            usuarios_service.desativar_usuario(self.id_admin, self.id_admin)
+def test_email_existente_nao_esta_disponivel(banco):
+    assert usuarios_service.verificar_email_disponivel(
+        "aluno@email.com"
+    ) is False
 
-        self.assertNotEqual(_campo_usuario(self.id_admin, "status"), "Inativo")
 
-    def test_cadastro_admin_sem_solicitante(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.criar_usuario(
-                "Teste Auth", EMAIL_TESTE, TELEFONE_TESTE, "Admin", SENHA_TESTE
-            )
+def test_email_proprio_pode_ser_reutilizado(banco):
+    resultado = usuarios_service.verificar_email_disponivel(
+        "aluno@email.com",
+        id_usuario_ignorar=2,
+    )
 
-        self.assertNotIn(EMAIL_TESTE, carregar_usuarios()["email"].values)
+    assert resultado is True
 
-    def test_usuario_comum_nao_lista_usuarios(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.listar_usuarios(self.id_comum)
 
-    def test_usuario_comum_nao_ve_dados_de_outro(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.obter_usuario(self.id_comum, self.id_admin)
+def test_email_de_outro_usuario_continua_indisponivel(banco):
+    resultado = usuarios_service.verificar_email_disponivel(
+        "admin@email.com",
+        id_usuario_ignorar=2,
+    )
 
-    def test_ultimo_admin_nao_pode_ser_rebaixado(self):
-        with self.assertRaises(ValueError):
-            usuarios_service.alterar_usuario(
-                self.id_admin, self.id_admin,
-                self.admin["nome"], self.admin["email"], self.admin["telefone"], "Professor"
-            )
+    assert resultado is False
 
-        self.assertEqual(_campo_usuario(self.id_admin, "role"), "Admin")
 
-    # --- deve funcionar --------------------------------------------------
+# ============================================================
+# CRIAÇÃO DE USUÁRIOS
+# ============================================================
 
-    def test_auto_cadastro_de_aluno_e_professor(self):
-        for role in ("Aluno", "Professor"):
-            with self.subTest(role=role):
-                resultado = usuarios_service.criar_usuario(
-                    "Teste Auth", f"teste.{role.lower()}@example.com", TELEFONE_TESTE,
-                    role, SENHA_TESTE
-                )
+def test_criar_usuario_aluno(banco):
+    resultado = usuarios_service.criar_usuario(
+        "Novo Aluno",
+        "novo@email.com",
+        "69966666666",
+        "Aluno",
+        "Senha123",
+    )
 
-                self.assertIsNot(False, resultado)
+    assert resultado is True
+    assert len(banco.usuarios) == 4
+    assert banco.usuarios[-1]["email"] == "novo@email.com"
 
-    def test_admin_cadastra_outro_admin(self):
-        resultado = usuarios_service.criar_usuario(
-            "Teste Auth", EMAIL_TESTE, TELEFONE_TESTE,
-            "Admin", SENHA_TESTE, self.id_admin
+
+def test_criar_usuario_professor(banco):
+    resultado = usuarios_service.criar_usuario(
+        "Novo Professor",
+        "professor.novo@email.com",
+        "69966666666",
+        "Professor",
+        "Senha123",
+    )
+
+    assert resultado is True
+
+
+def test_admin_pode_criar_outro_admin(banco):
+    resultado = usuarios_service.criar_usuario(
+        "Novo Admin",
+        "novo.admin@email.com",
+        "69966666666",
+        "Admin",
+        "Senha123",
+        id_solicitante=1,
+    )
+
+    assert resultado is True
+
+
+def test_usuario_comum_nao_pode_criar_admin(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.criar_usuario(
+            "Novo Admin",
+            "novo.admin@email.com",
+            "69966666666",
+            "Admin",
+            "Senha123",
+            id_solicitante=2,
         )
 
-        self.assertIsNot(False, resultado)
 
-    def test_usuario_comum_edita_os_proprios_dados(self):
-        resultado = usuarios_service.alterar_usuario(
-            self.id_comum, self.id_comum,
-            self.comum["nome"], self.comum["email"], self.comum["telefone"], self.comum["role"]
+def test_nao_criar_usuario_com_email_duplicado(banco):
+    total_antes = len(banco.usuarios)
+
+    resultado = usuarios_service.criar_usuario(
+        "Outro Aluno",
+        "aluno@email.com",
+        "69966666666",
+        "Aluno",
+        "Senha123",
+    )
+
+    assert resultado is False
+    assert len(banco.usuarios) == total_antes
+
+
+def test_criar_usuario_com_email_invalido(banco):
+    with pytest.raises(ValueError):
+        usuarios_service.criar_usuario(
+            "Novo Aluno",
+            "email-invalido",
+            "69966666666",
+            "Aluno",
+            "Senha123",
         )
 
-        self.assertIsNot(False, resultado)
-        self.assertEqual(_campo_usuario(self.id_comum, "role"), self.comum["role"])
 
-    def test_usuario_comum_troca_a_propria_senha(self):
-        resultado = usuarios_service.alterar_senha(
-            self.id_comum, self.id_comum, self.comum["senha"], SENHA_TESTE
+def test_criar_usuario_com_senha_curta(banco):
+    with pytest.raises(ValueError):
+        usuarios_service.criar_usuario(
+            "Novo Aluno",
+            "novo@email.com",
+            "69966666666",
+            "Aluno",
+            "123",
         )
 
-        self.assertTrue(resultado)
 
-    def test_admin_lista_usuarios_sem_senha(self):
-        usuarios = usuarios_service.listar_usuarios(self.id_admin)
+# ============================================================
+# AUTENTICAÇÃO
+# ============================================================
 
-        self.assertNotIn("senha", usuarios.columns)
+def test_login_com_credenciais_validas(banco):
+    usuario = usuarios_service.autenticar_usuario(
+        "aluno@email.com",
+        "Aluno@123",
+    )
 
-    def test_usuario_comum_ve_os_proprios_dados(self):
-        usuario = usuarios_service.obter_usuario(self.id_comum, self.id_comum)
-
-        self.assertIsNotNone(usuario)
-
-    def test_admin_desativa_usuario_comum(self):
-        resultado = usuarios_service.desativar_usuario(self.id_admin, self.id_comum)
-
-        self.assertTrue(resultado)
-        self.assertEqual(_campo_usuario(self.id_comum, "status"), "Inativo")
-
-    # --- usuário inativo --------------------------------------------------
-
-    def test_usuario_inativo_nao_faz_login(self):
-        email, senha = self.comum["email"], self.comum["senha"]
-        self.assertIsNot(False, usuarios_service.autenticar_usuario(email, senha))
-
-        _definir_status_usuario(self.id_comum, "Inativo")
-
-        self.assertIs(usuarios_service.autenticar_usuario(email, senha), False)
-
-    def test_checar_usuario_ativo(self):
-        self.assertTrue(usuarios_service.checar_usuario_ativo(self.id_comum))
-        self.assertFalse(usuarios_service.checar_usuario_ativo(99999))
-
-        _definir_status_usuario(self.id_comum, "Inativo")
-
-        self.assertFalse(usuarios_service.checar_usuario_ativo(self.id_comum))
-
-    def test_admin_inativo_nao_e_admin(self):
-        self.assertTrue(usuarios_service.checar_admin(self.id_admin))
-
-        _definir_status_usuario(self.id_admin, "Inativo")
-
-        self.assertFalse(usuarios_service.checar_admin(self.id_admin))
+    assert usuario is not False
+    assert usuario.email == "aluno@email.com"
 
 
-# ---------------------------------------------------------------------------
-# [NOVO] Login de usuário
-# ---------------------------------------------------------------------------
+def test_login_com_senha_incorreta(banco):
+    resultado = usuarios_service.autenticar_usuario(
+        "aluno@email.com",
+        "senha-errada",
+    )
 
-class TestLoginUsuarios(BaseUsuariosTest):
+    assert resultado is False
 
-    def test_login_valido_devolve_o_usuario_certo(self):
-        usuario = usuarios_service.autenticar_usuario(self.comum["email"], self.comum["senha"])
 
-        self.assertIsNot(False, usuario)
-        self.assertEqual(usuario.email, self.comum["email"])
-        self.assertEqual(usuario.role, self.comum["role"])
+def test_login_com_email_inexistente(banco):
+    resultado = usuarios_service.autenticar_usuario(
+        "inexistente@email.com",
+        "Senha123",
+    )
 
-    def test_login_com_senha_errada_falha(self):
-        resultado = usuarios_service.autenticar_usuario(self.comum["email"], "senha-errada")
+    assert resultado is False
 
-        self.assertIs(resultado, False)
 
-    def test_login_com_email_inexistente_falha(self):
-        resultado = usuarios_service.autenticar_usuario("ninguem@example.com", self.comum["senha"])
+def test_usuario_inativo_nao_consegue_logar(banco):
+    banco.usuarios[1]["status_usuario"] = "Inativo"
 
-        self.assertIs(resultado, False)
+    resultado = usuarios_service.autenticar_usuario(
+        "aluno@email.com",
+        "Aluno@123",
+    )
 
-    def test_login_com_senha_vazia_ou_none_falha(self):
-        for senha in ("", None):
-            with self.subTest(senha=senha):
-                resultado = usuarios_service.autenticar_usuario(self.comum["email"], senha)
+    assert resultado is False
 
-                self.assertIs(resultado, False)
 
-    def test_login_com_a_senha_de_outro_usuario_falha(self):
-        senha_do_admin = "Admin@Unica1"
-        _definir_senha_usuario(self.id_admin, senha_do_admin)
+# ============================================================
+# ALTERAÇÃO DE DADOS
+# ============================================================
 
-        resultado = usuarios_service.autenticar_usuario(self.comum["email"], senha_do_admin)
+def test_usuario_altera_proprios_dados(banco):
+    resultado = usuarios_service.alterar_usuario(
+        2,
+        2,
+        "Aluno Atualizado",
+        "aluno.novo@email.com",
+        "69966666666",
+        "Aluno",
+    )
 
-        self.assertIs(resultado, False)
+    assert resultado is not False
+    assert banco.usuarios[1]["nome"] == "Aluno Atualizado"
+    assert banco.usuarios[1]["email"] == "aluno.novo@email.com"
 
-    def test_senha_nova_funciona_e_a_antiga_deixa_de_funcionar(self):
-        email, senha_antiga = self.comum["email"], self.comum["senha"]
-        self.assertTrue(
-            usuarios_service.alterar_senha(self.id_comum, self.id_comum, senha_antiga, SENHA_TESTE)
+
+def test_usuario_comum_nao_altera_dados_de_outro(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.alterar_usuario(
+            2,
+            1,
+            "Administrador Alterado",
+            "admin@email.com",
+            "69999999999",
+            "Admin",
         )
 
-        self.assertIsNot(False, usuarios_service.autenticar_usuario(email, SENHA_TESTE))
-        self.assertIs(usuarios_service.autenticar_usuario(email, senha_antiga), False)
 
-
-# ---------------------------------------------------------------------------
-# [NOVO] E-mail duplicado (verificar_email_disponivel e quem depende dela)
-# ---------------------------------------------------------------------------
-
-class TestEmailDisponivel(BaseUsuariosTest):
-
-    def test_email_novo_esta_disponivel(self):
-        self.assertTrue(usuarios_service.verificar_email_disponivel("novo.email@example.com"))
-
-    def test_email_ja_cadastrado_nao_esta_disponivel(self):
-        self.assertFalse(usuarios_service.verificar_email_disponivel(self.comum["email"]))
-        self.assertFalse(usuarios_service.verificar_email_disponivel(self.admin["email"]))
-
-    def test_proprio_email_fica_disponivel_quando_o_proprio_usuario_e_ignorado(self):
-        resultado = usuarios_service.verificar_email_disponivel(
-            self.comum["email"], id_usuario_ignorar=self.id_comum
+def test_usuario_comum_nao_pode_se_tornar_admin(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.alterar_usuario(
+            2,
+            2,
+            "Aluno Teste",
+            "aluno@email.com",
+            "69988888888",
+            "Admin",
         )
 
-        self.assertTrue(resultado)
 
-    def test_email_de_outro_usuario_continua_indisponivel_ao_ignorar_um_id(self):
-        resultado = usuarios_service.verificar_email_disponivel(
-            self.admin["email"], id_usuario_ignorar=self.id_comum
+def test_alterar_usuario_inexistente(banco):
+    resultado = usuarios_service.alterar_usuario(
+        1,
+        999,
+        "Usuario",
+        "usuario@email.com",
+        "69966666666",
+        "Aluno",
+    )
+
+    assert resultado is False
+
+
+def test_nao_alterar_para_email_de_outro_usuario(banco):
+    resultado = usuarios_service.alterar_usuario(
+        2,
+        2,
+        "Aluno Teste",
+        "admin@email.com",
+        "69988888888",
+        "Aluno",
+    )
+
+    assert resultado is False
+    assert banco.usuarios[1]["email"] == "aluno@email.com"
+
+
+# ============================================================
+# ALTERAÇÃO DE SENHA
+# ============================================================
+
+def test_usuario_altera_propria_senha(banco):
+    resultado = usuarios_service.alterar_senha(
+        2,
+        2,
+        "Aluno@123",
+        "NovaSenha123",
+    )
+
+    assert resultado is True
+    assert banco.usuarios[1]["senha"] == "NovaSenha123"
+
+
+def test_senha_atual_incorreta_nao_altera_senha(banco):
+    resultado = usuarios_service.alterar_senha(
+        2,
+        2,
+        "senha-errada",
+        "NovaSenha123",
+    )
+
+    assert resultado is False
+    assert banco.usuarios[1]["senha"] == "Aluno@123"
+
+
+def test_usuario_nao_altera_senha_de_outro(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.alterar_senha(
+            2,
+            1,
+            "Admin@123",
+            "NovaSenha123",
         )
 
-        self.assertFalse(resultado)
 
-    def test_criar_usuario_com_email_duplicado_nao_grava(self):
-        total_antes = len(carregar_usuarios())
-
-        resultado = usuarios_service.criar_usuario(
-            "Teste Auth", self.comum["email"], TELEFONE_TESTE, "Aluno", SENHA_TESTE
+def test_nova_senha_curta_e_rejeitada(banco):
+    with pytest.raises(ValueError):
+        usuarios_service.alterar_senha(
+            2,
+            2,
+            "Aluno@123",
+            "123",
         )
 
-        self.assertIs(resultado, False)
-        self.assertEqual(len(carregar_usuarios()), total_antes)
 
-    def test_alterar_usuario_para_email_de_outro_nao_grava(self):
-        resultado = usuarios_service.alterar_usuario(
-            self.id_comum, self.id_comum,
-            self.comum["nome"], self.admin["email"], self.comum["telefone"], self.comum["role"]
+# ============================================================
+# DESATIVAÇÃO DE USUÁRIOS
+# ============================================================
+
+def test_admin_desativa_usuario(banco):
+    resultado = usuarios_service.desativar_usuario(1, 2)
+
+    assert resultado is True
+    assert banco.usuarios[1]["status_usuario"] == "Inativo"
+
+
+def test_usuario_comum_nao_desativa_usuario(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.desativar_usuario(2, 3)
+
+
+def test_admin_nao_desativa_a_si_mesmo(banco):
+    with pytest.raises(ValueError):
+        usuarios_service.desativar_usuario(1, 1)
+
+
+def test_desativar_usuario_inexistente(banco):
+    resultado = usuarios_service.desativar_usuario(1, 999)
+
+    assert resultado is False
+
+
+def test_desativar_usuario_ja_inativo(banco):
+    banco.usuarios[1]["status_usuario"] = "Inativo"
+
+    resultado = usuarios_service.desativar_usuario(1, 2)
+
+    assert resultado is False
+
+
+# ============================================================
+# VERIFICAÇÃO DE PERMISSÕES E STATUS
+# ============================================================
+
+def test_checar_admin(banco):
+    assert usuarios_service.checar_admin(1) is True
+    assert usuarios_service.checar_admin(2) is False
+    assert usuarios_service.checar_admin(999) is False
+
+
+def test_admin_inativo_nao_e_reconhecido_como_admin(banco):
+    banco.usuarios[0]["status_usuario"] = "Inativo"
+
+    assert usuarios_service.checar_admin(1) is False
+
+
+def test_exigir_admin_rejeita_usuario_comum(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.exigir_admin(2)
+
+
+def test_exigir_admin_rejeita_usuario_inexistente(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.exigir_admin(999)
+
+
+def test_checar_usuario_ativo(banco):
+    assert usuarios_service.checar_usuario_ativo(2) is True
+    assert usuarios_service.checar_usuario_ativo(999) is False
+
+
+def test_usuario_inativo_nao_e_considerado_ativo(banco):
+    banco.usuarios[1]["status_usuario"] = "Inativo"
+
+    assert usuarios_service.checar_usuario_ativo(2) is False
+
+
+# ============================================================
+# REGRA DO ÚLTIMO ADMINISTRADOR
+# ============================================================
+
+def test_admin_e_o_unico_admin_ativo(banco):
+    assert usuarios_service.eh_ultimo_admin(1) is True
+
+
+def test_admin_pode_ser_rebaixado_se_existir_outro_admin(banco):
+    banco.usuarios.append({
+        "id_usuario": 4,
+        "nome": "Segundo Admin",
+        "email": "segundo@email.com",
+        "telefone": "69966666666",
+        "papel": "Admin",
+        "senha": "Senha123",
+        "status_usuario": "Ativo",
+    })
+
+    resultado = usuarios_service.eh_ultimo_admin(1)
+
+    assert resultado is False
+
+
+def test_unico_admin_nao_pode_ser_rebaixado(banco):
+    with pytest.raises(ValueError):
+        usuarios_service.alterar_usuario(
+            1,
+            1,
+            "Administrador",
+            "admin@email.com",
+            "69999999999",
+            "Professor",
         )
 
-        self.assertIs(resultado, False)
-        self.assertEqual(_campo_usuario(self.id_comum, "email"), self.comum["email"])
+
+# ============================================================
+# CONSULTA DE USUÁRIO E AUTORIZAÇÃO
+# ============================================================
+
+def test_usuario_consulta_proprios_dados(banco):
+    usuario = usuarios_service.obter_usuario(2, 2)
+
+    assert usuario is not None
+    assert usuario.email == "aluno@email.com"
 
 
-# ---------------------------------------------------------------------------
-# [NOVO] Desativação de usuário
-# ---------------------------------------------------------------------------
+def test_admin_consulta_dados_de_outro_usuario(banco):
+    usuario = usuarios_service.obter_usuario(1, 2)
 
-class TestDesativacaoUsuarios(BaseUsuariosTest):
-
-    def test_desativar_muda_so_o_status_do_alvo(self):
-        antes = carregar_usuarios()
-
-        self.assertTrue(usuarios_service.desativar_usuario(self.id_admin, self.id_comum))
-
-        depois = carregar_usuarios()
-        alvo = depois["idUser"] == self.id_comum
-        self.assertEqual(len(antes), len(depois))
-        self.assertEqual(depois.loc[alvo, "status"].iloc[0], "Inativo")
-        # nenhuma outra coluna mudou (inclusive a senha do alvo)
-        pd.testing.assert_frame_equal(antes.drop(columns="status"), depois.drop(columns="status"))
-        # nenhum outro usuário foi afetado
-        pd.testing.assert_frame_equal(
-            antes[~alvo].reset_index(drop=True), depois[~alvo].reset_index(drop=True)
-        )
-
-    def test_desativar_usuario_inexistente_devolve_false_e_nao_altera_o_csv(self):
-        antes = carregar_usuarios()
-
-        resultado = usuarios_service.desativar_usuario(self.id_admin, 99999)
-
-        self.assertIs(resultado, False)
-        pd.testing.assert_frame_equal(antes, carregar_usuarios())
-
-    def test_desativar_usuario_ja_inativo_devolve_false(self):
-        _definir_status_usuario(self.id_comum, "Inativo")
-
-        resultado = usuarios_service.desativar_usuario(self.id_admin, self.id_comum)
-
-        self.assertIs(resultado, False)
-        self.assertEqual(_campo_usuario(self.id_comum, "status"), "Inativo")
-
-    def test_solicitante_none_nao_desativa(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.desativar_usuario(None, self.id_comum)
-
-        self.assertNotEqual(_campo_usuario(self.id_comum, "status"), "Inativo")
-
-    def test_admin_inativo_nao_desativa(self):
-        _definir_status_usuario(self.id_admin, "Inativo")
-
-        with self.assertRaises(PermissionError):
-            usuarios_service.desativar_usuario(self.id_admin, self.id_comum)
-
-        self.assertNotEqual(_campo_usuario(self.id_comum, "status"), "Inativo")
-
-    def test_usuario_desativado_nao_loga_e_deixa_de_ser_ativo(self):
-        email, senha = self.comum["email"], self.comum["senha"]
-
-        self.assertTrue(usuarios_service.desativar_usuario(self.id_admin, self.id_comum))
-
-        self.assertIs(usuarios_service.autenticar_usuario(email, senha), False)
-        self.assertFalse(usuarios_service.checar_usuario_ativo(self.id_comum))
+    assert usuario is not None
+    assert usuario.email == "aluno@email.com"
 
 
-# ---------------------------------------------------------------------------
-# [NOVO] Autorização: casos que faltavam
-# ---------------------------------------------------------------------------
-
-class TestAutorizacaoUsuariosComplemento(BaseUsuariosTest):
-
-    def test_usuario_comum_nao_cadastra_admin(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.criar_usuario(
-                "Teste Auth", EMAIL_TESTE, TELEFONE_TESTE, "Admin", SENHA_TESTE, self.id_comum
-            )
-
-        self.assertNotIn(EMAIL_TESTE, carregar_usuarios()["email"].values)
-
-    def test_admin_inativo_nao_cadastra_admin(self):
-        _definir_status_usuario(self.id_admin, "Inativo")
-
-        with self.assertRaises(PermissionError):
-            usuarios_service.criar_usuario(
-                "Teste Auth", EMAIL_TESTE, TELEFONE_TESTE, "Admin", SENHA_TESTE, self.id_admin
-            )
-
-        self.assertNotIn(EMAIL_TESTE, carregar_usuarios()["email"].values)
-
-    def test_nem_o_admin_troca_a_senha_de_outro_usuario(self):
-        with self.assertRaises(PermissionError):
-            usuarios_service.alterar_senha(
-                self.id_admin, self.id_comum, self.comum["senha"], SENHA_TESTE
-            )
-
-        self.assertEqual(_campo_usuario(self.id_comum, "senha"), self.comum["senha"])
-
-    def test_alterar_senha_com_senha_atual_errada_devolve_false_e_nao_muda(self):
-        resultado = usuarios_service.alterar_senha(
-            self.id_comum, self.id_comum, "senha-atual-errada", SENHA_TESTE
-        )
-
-        self.assertIs(resultado, False)
-        self.assertEqual(_campo_usuario(self.id_comum, "senha"), self.comum["senha"])
-
-    def test_alterar_usuario_inexistente_devolve_false(self):
-        resultado = usuarios_service.alterar_usuario(
-            self.id_admin, 99999, "Fulano", "fulano@example.com", TELEFONE_TESTE, "Aluno"
-        )
-
-        self.assertIs(resultado, False)
-
-    def test_admin_ve_dados_de_outro_usuario(self):
-        usuario = usuarios_service.obter_usuario(self.id_admin, self.id_comum)
-
-        self.assertIsNotNone(usuario)
-        self.assertEqual(usuario.email, self.comum["email"])
-
-    def test_obter_usuario_inexistente_devolve_none(self):
-        self.assertIsNone(usuarios_service.obter_usuario(self.id_admin, 99999))
-
-    # Versão que não depende do seed (o original só passa se houver um único Admin ativo)
-    def test_unico_admin_ativo_nao_pode_ser_rebaixado(self):
-        _manter_apenas_este_admin_ativo(self.id_admin)
-
-        with self.assertRaises(ValueError):
-            usuarios_service.alterar_usuario(
-                self.id_admin, self.id_admin,
-                self.admin["nome"], self.admin["email"], self.admin["telefone"], "Professor"
-            )
-
-        self.assertEqual(_campo_usuario(self.id_admin, "role"), "Admin")
-
-    def test_com_dois_admins_ativos_um_deles_pode_ser_rebaixado(self):
-        _definir_role_usuario(self.id_comum, "Admin")
-
-        resultado = usuarios_service.alterar_usuario(
-            self.id_admin, self.id_admin,
-            self.admin["nome"], self.admin["email"], self.admin["telefone"], "Professor"
-        )
-
-        self.assertIsNot(False, resultado)
-        self.assertEqual(_campo_usuario(self.id_admin, "role"), "Professor")
+def test_usuario_comum_nao_consulta_dados_de_outro(banco):
+    with pytest.raises(PermissionError):
+        usuarios_service.obter_usuario(2, 1)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_consultar_usuario_inexistente(banco):
+    usuario = usuarios_service.obter_usuario(1, 999)
+
+    assert usuario is None
