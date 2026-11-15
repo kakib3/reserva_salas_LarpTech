@@ -1,6 +1,7 @@
 
 from datetime import date, time, timedelta
 from unittest.mock import Mock
+from copy import deepcopy
 
 import pytest
 
@@ -17,11 +18,12 @@ from app.services import reservas_service as service
 
 class MockCursor:
     def __init__(self, resultado=None, resultados=None, lastrowid=100):
-        self.resultado = resultado
-        self.resultados = resultados or []
+        self.resultado = deepcopy(resultado)
+        self.resultados = deepcopy(resultados) if resultados else []
         self.lastrowid = lastrowid
         self.executado = []
         self.fechado = False
+        self.rowcount = 1
 
     def execute(self, sql, valores=None):
         self.executado.append((sql, valores))
@@ -486,7 +488,10 @@ def test_cancelar_reserva_confirmada(monkeypatch):
     sql, valores = conexao.mock_cursor.executado[1]
 
     assert "UPDATE reservas" in sql
-    assert valores == (StatusReserva.CANCELADA, 5)
+    assert valores == (StatusReserva.CANCELADA,
+                       5, 10,
+                       StatusReserva.CONFIRMADA,
+                       StatusReserva.PENDENTE)
 
 # ALTERAÇÃO DE RESERVAS
 
@@ -545,6 +550,8 @@ def test_alterar_reserva_com_sucesso(monkeypatch):
         FIM,
         StatusReserva.CONFIRMADA,
         5,
+        10,
+        StatusReserva.CONFIRMADA
     )
 
 
@@ -677,7 +684,8 @@ def test_admin_aprova_reserva_pendente(monkeypatch):
     sql, valores = atualizacao.mock_cursor.executado[0]
 
     assert "UPDATE reservas" in sql
-    assert valores == (StatusReserva.CONFIRMADA, 5)
+    assert valores == (StatusReserva.CONFIRMADA, 5,
+                       StatusReserva.PENDENTE)
 
 
 @pytest.mark.parametrize(
@@ -759,7 +767,7 @@ def test_admin_nega_reserva_pendente(monkeypatch):
     configurar_admin(monkeypatch)
 
     conexao = MockConexao(
-        resultado={"status_reserva": StatusReserva.PENDENTE}
+        resultado=RESERVA_PENDENTE
     )
     configurar_conexoes(monkeypatch, conexao)
 
@@ -771,7 +779,8 @@ def test_admin_nega_reserva_pendente(monkeypatch):
     sql, valores = conexao.mock_cursor.executado[1]
 
     assert "UPDATE reservas" in sql
-    assert valores == (StatusReserva.CANCELADA, 5)
+    assert valores == (StatusReserva.CANCELADA, 5,
+                       StatusReserva.PENDENTE)
 
 
 def test_admin_nao_nega_reserva_inexistente(monkeypatch):
@@ -984,7 +993,7 @@ def test_normalizar_horarios_converte_timedelta():
         "hora_fim": timedelta(hours=10),
     }
 
-    service._normalizar_horarios(reserva)
+    service.normalizar_horarios(reserva)
 
     assert reserva["hora_inicio"] == time(8, 30)
     assert reserva["hora_fim"] == time(10, 0)
@@ -996,7 +1005,7 @@ def test_normalizar_horarios_preserva_valores_time():
         "hora_fim": time(10, 0),
     }
 
-    service._normalizar_horarios(reserva)
+    service.normalizar_horarios(reserva)
 
     assert reserva["hora_inicio"] == time(8, 30)
     assert reserva["hora_fim"] == time(10, 0)

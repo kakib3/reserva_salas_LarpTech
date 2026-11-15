@@ -2,6 +2,7 @@
 import pytest
 
 from app.services import usuarios_service
+from app.utils.seguranca import gerar_hash_senha, verificar_senha
 
 
 # ============================================================
@@ -17,7 +18,7 @@ class BancoFake:
                 "email": "admin@email.com",
                 "telefone": "69999999999",
                 "papel": "Admin",
-                "senha": "Admin@123",
+                "senha": gerar_hash_senha("Admin@123"),
                 "status_usuario": "Ativo",
             },
             {
@@ -26,7 +27,7 @@ class BancoFake:
                 "email": "aluno@email.com",
                 "telefone": "69988888888",
                 "papel": "Aluno",
-                "senha": "Aluno@123",
+                "senha": gerar_hash_senha("Aluno@123"),
                 "status_usuario": "Ativo",
             },
             {
@@ -35,7 +36,7 @@ class BancoFake:
                 "email": "prof@email.com",
                 "telefone": "69977777777",
                 "papel": "Professor",
-                "senha": "Prof@123",
+                "senha": gerar_hash_senha("Prof@123"),
                 "status_usuario": "Ativo",
             },
         ]
@@ -521,10 +522,11 @@ def test_usuario_altera_propria_senha(banco):
     )
 
     assert resultado is True
-    assert banco.usuarios[1]["senha"] == "NovaSenha123"
+    assert verificar_senha("NovaSenha123", banco.usuarios[1]["senha"])
 
 
 def test_senha_atual_incorreta_nao_altera_senha(banco):
+    senha_anterior = banco.usuarios[1]["senha"]
     resultado = usuarios_service.alterar_senha(
         2,
         2,
@@ -533,7 +535,7 @@ def test_senha_atual_incorreta_nao_altera_senha(banco):
     )
 
     assert resultado is False
-    assert banco.usuarios[1]["senha"] == "Aluno@123"
+    assert banco.usuarios[1]["senha"] == senha_anterior
 
 
 def test_usuario_nao_altera_senha_de_outro(banco):
