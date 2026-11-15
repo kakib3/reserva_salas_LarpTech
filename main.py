@@ -7,6 +7,7 @@ from app.views.detalhes_sala_view import render as render_detalhes_sala
 from app.views.reservar_view import render as render_reservar
 from app.views.minhas_reservas_view import render as render_minhas_reservas
 from app.views.gerenciar_salas_view import render as render_gerenciar_salas
+from app.views.gerenciar_usuarios_view import render as render_gerenciar_usuarios
 from app.utils.sessao import usuario_logado, logout_sessao
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,10 @@ def minhas_reservas_page():
 
 def gerenciar_salas_page():
     render_gerenciar_salas()
+
+
+def gerenciar_usuarios_page():
+    render_gerenciar_usuarios()
 
 def executar(navigation):
     try:
@@ -68,6 +73,8 @@ else:
     if usuario.role == "Admin":
         pagina_gerenciar_salas = st.Page(gerenciar_salas_page, title="Gerenciar Salas", icon="🛠️")
         pages.append(pagina_gerenciar_salas)
+        pagina_gerenciar_usuarios = st.Page(gerenciar_usuarios_page, title="Gerenciar Usuários", icon="👥")
+        pages.append(pagina_gerenciar_usuarios)
 
     navigation = st.navigation(pages)
 
