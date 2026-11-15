@@ -42,15 +42,14 @@ def _validar_campos(nome, email, telefone, perfil, senha=None):
     return erros
 
 
-def _mostrar_resultado(sucesso, mensagem):
-    if sucesso:
-        st.success(mensagem)
-    else:
-        st.error(mensagem)
-
-
 def _formulario_cadastro(usuario):
-    with st.form("form_cadastrar_usuario", clear_on_submit=True):
+    mensagem_sucesso = st.session_state.pop("cadastro_usuario_sucesso", None)
+    if mensagem_sucesso:
+        st.success(mensagem_sucesso)
+
+    versao_form = st.session_state.get("versao_form_cadastro_usuario", 0)
+
+    with st.form(f"form_cadastrar_usuario_{versao_form}"):
         nome = st.text_input("Nome completo")
 
         col1, col2 = st.columns(2)
@@ -75,10 +74,19 @@ def _formulario_cadastro(usuario):
         sucesso, mensagem, _ = usuarios_controller.cadastrar_usuario(
             nome, email, telefone, perfil, senha, usuario.id
         )
-        _mostrar_resultado(sucesso, mensagem)
+        if sucesso:
+            st.session_state["cadastro_usuario_sucesso"] = mensagem
+            st.session_state["versao_form_cadastro_usuario"] = versao_form + 1
+            st.rerun()
+        else:
+            st.error(mensagem)
 
 
 def _formulario_edicao(usuario):
+    mensagem_sucesso = st.session_state.pop("edicao_usuario_sucesso", None)
+    if mensagem_sucesso:
+        st.success(mensagem_sucesso)
+
     sucesso, mensagem, usuarios = usuarios_controller.listar_todos_usuarios(usuario.id)
 
     if not sucesso:
@@ -127,8 +135,16 @@ def _formulario_edicao(usuario):
         sucesso, mensagem, _ = usuarios_controller.editar_usuario(
             id_usuario, nome, email, telefone, perfil, usuario.id
         )
-        _mostrar_resultado(sucesso, mensagem)
+        _finalizar_edicao(sucesso, mensagem)
 
     if desativar:
         sucesso, mensagem, _ = usuarios_controller.desativar_usuario(id_usuario, usuario.id)
-        _mostrar_resultado(sucesso, mensagem)
+        _finalizar_edicao(sucesso, mensagem)
+
+
+def _finalizar_edicao(sucesso, mensagem):
+    if sucesso:
+        st.session_state["edicao_usuario_sucesso"] = mensagem
+        st.rerun()
+    else:
+        st.error(mensagem)
