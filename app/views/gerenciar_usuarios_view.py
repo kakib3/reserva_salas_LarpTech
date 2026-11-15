@@ -97,11 +97,14 @@ def _formulario_edicao(usuario):
         st.info("Nenhum usuário cadastrado ainda.")
         return
 
-    def descrever(u):
+    usuarios_por_id = {u["id_usuario"]: u for u in usuarios}
+
+    def descrever(id_escolhido):
+        u = usuarios_por_id[id_escolhido]
         return f"{u['nome']} ({u['email']})"
 
-    selecionado = st.selectbox("Escolha o usuário", usuarios, format_func=descrever)
-    id_usuario = selecionado["id_usuario"]
+    id_usuario = st.selectbox("Escolha o usuário", list(usuarios_por_id), format_func=descrever)
+    selecionado = usuarios_por_id[id_usuario]
     perfil_atual = selecionado["papel"]
     indice_perfil = Usuario.ROLES_VALIDAS.index(perfil_atual) if perfil_atual in Usuario.ROLES_VALIDAS else 0
     inativo = selecionado["status_usuario"] == "Inativo"
@@ -115,7 +118,12 @@ def _formulario_edicao(usuario):
             perfil = st.selectbox("Perfil", Usuario.ROLES_VALIDAS, index=indice_perfil)
         with col2:
             telefone = st.text_input("Telefone", value=str(selecionado["telefone"] or ""))
-            st.text_input("Status", value=selecionado["status_usuario"], disabled=True)
+            st.text_input(
+                "Status",
+                value=selecionado["status_usuario"],
+                disabled=True,
+                key=f"status_{id_usuario}_{selecionado['status_usuario']}",
+            )
 
         col_salvar, col_desativar = st.columns([4, 1])
         with col_salvar:
