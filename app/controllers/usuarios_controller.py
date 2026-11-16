@@ -91,3 +91,26 @@ def listar_todos_usuarios(id_solicitante):
         return False, str(e), None
 
     return True, "", usuarios
+
+
+@tratar_erro_de_dados
+def alterar_status_usuario(id_usuario, novo_status, id_solicitante):
+    try:
+        resultado = usuarios_service.alterar_status_usuario(
+            id_solicitante,
+            id_usuario,
+            novo_status
+        )
+    except (ValueError, PermissionError) as e:
+        return False, str(e), None
+
+    if resultado is False:
+        return False, "Usuário não encontrado ou já possui esse status.", None
+
+    mensagem = (
+        "Usuário ativado com sucesso."
+        if novo_status == "Ativo"
+        else "Usuário desativado com sucesso."
+    )
+
+    return True, mensagem, None

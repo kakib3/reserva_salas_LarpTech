@@ -362,3 +362,57 @@ def obter_usuario(id_solicitante, id_usuario):
 def checar_usuario_ativo(id_usuario):
     usuario = buscar_usuario_por_id(id_usuario)
     return usuario is not None and usuario.status != "Inativo"
+
+
+def alterar_status_usuario(id_solicitante, id_usuario, novo_status):
+    exigir_admin(id_solicitante)
+
+    if novo_status not in ("Ativo", "Inativo"):
+        raise ValueError("Status inválido.")
+
+    if id_solicitante == id_usuario:
+        raise ValueError("Administradores não podem alterar o status de si mesmos.")
+
+    conexao = conectar_banco()
+    cursor = None
+
+    try:
+        cursor = conexao.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT status_usuario
+            FROM usuarios
+            WHERE id_usuario = %s
+            """,
+            (id_usuario,)
+        )
+
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            return False
+
+        if usuario["status_usuario"] == novo_status:
+            return False
+
+        cursor.execute(
+            """
+            UPDATE usuarios
+            SET status_usuario = %s
+            WHERE id_usuario = %s
+            """,
+            (novo_status, id_usuario)
+        )
+
+        conexao.commit()
+        return True
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conexao.close()
