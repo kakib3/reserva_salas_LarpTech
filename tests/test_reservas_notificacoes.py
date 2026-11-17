@@ -121,7 +121,7 @@ def test_criar_reserva_dispara_notificacao(
     resultado = reservas_service.criar_reserva(
         id_usuario=10,
         id_sala=5,
-        data=date(2026, 11, 16),
+        data=date(2028, 11, 20),
         hora_inicio=time(14, 0),
         hora_fim=time(16, 0)
     )
@@ -154,7 +154,7 @@ def test_falha_na_notificacao_nao_impede_criar_reserva(
     resultado = reservas_service.criar_reserva(
         id_usuario=10,
         id_sala=5,
-        data=date(2026, 11, 16),
+        data=date(2028, 11, 20),
         hora_inicio=time(14, 0),
         hora_fim=time(16, 0)
     )

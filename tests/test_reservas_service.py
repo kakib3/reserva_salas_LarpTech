@@ -77,7 +77,7 @@ def configurar_admin(monkeypatch, admin=True):
 
 # DADOS UTILIZADOS NOS TESTES
 
-DATA = date(2026, 11, 16)
+DATA = date(2028, 11, 20)
 INICIO = time(19, 0)
 FIM = time(21, 0)
 
