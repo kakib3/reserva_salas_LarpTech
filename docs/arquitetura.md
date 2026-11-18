@@ -7,8 +7,9 @@
     *   `views/`: telas do sistema (`detalhes_sala_view`, `gerenciar_salas_view`, `gerenciar_usuarios_view`, `home_view`, `login_view`, `minhas_reservas_view`, `reservar_view` e `salas_view`)
     *   `controllers/`: ligação entre as telas e as regras (reservas, salas e usuarios)
     *   `services/`: regras de negócio (`reservas_service`, `sala_service` e `usuarios_service`)
-    *   `models/`: entidades e conexão com o banco (conexao, constantes, reserva, sala e usuario)
+    *   `models/`: entidades e conexão com o banco (conexao, constantes, dados, reserva, sala e usuario)
     *   `utils/`: apoio (`sessao`, `salas_ocultas`, `mensagens`, `excecoes`, `formatacao`, `horarios`, `relogio` e `seguranca`)
+    *   `messaging/`: notificações do sistema (envio de e-mail e mensagens de reserva - confirmada, pendente, aprovada e recusada).
 *   **tests/**: testes automatizados. Os unitários ficam em `tests/` (usam mocks e não precisam de banco) e os de integração em `tests/integration/` (usam um MySQL de teste; veja o README da pasta)
 *   **docs/**: documentação (`arquitetura.md`, `contrato_services.md`, `modelo.png`, `modelo_dados.md` e `regras_negocio.md`)
 *   **assets/**: logos e imagens
@@ -25,6 +26,7 @@ Responsabilidades de cada camada:
 *   **controllers**: recebem a ação vinda da View, chamam o Service, tratam os erros de validação e de acesso ao banco (decorator `tratar_erro_de_dados`, que também registra a causa no log) e devolvem à View o resultado, com uma mensagem de sucesso ou de erro.
 *   **services**: guardam a regra de negócio que envolve mais de uma entidade. Por exemplo, criar uma reserva exige checar a sala e as reservas existentes. Também fazem as consultas e gravações no banco MySQL.
 *   **models**: trazem as entidades (Usuario, Sala e Reserva), com as validações de cada uma, e a `conexao.py`, que mantém o pool de conexões com o MySQL. Os modelos também validam os limites das colunas do banco (por exemplo, nome de sala com até 10 caracteres).
+*   **messaging**: são disparadas pelos services após a persistência, de forma tolerante a falhas (uma falha no envio não compromete a operação principal).
 *   **banco de dados**: MySQL, acessado com `mysql-connector-python`. As credenciais ficam em `.streamlit/secrets.toml`, que não é versionado.
 
 ## 3. Fluxo principal do usuário
