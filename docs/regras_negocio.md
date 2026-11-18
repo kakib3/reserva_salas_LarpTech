@@ -48,7 +48,7 @@ As regras abaixo definem como o sistema deve se comportar nas reservas, nos stat
 
 *   Os **Admins** são os responsáveis por confirmar ou negar as reservas pendentes. Essa opção aparece na tela Home, na área de Pendências, e só é exibida para eles.
 *   Somente os **Admins** veem o botão de ocultar salas na tela Salas.
-*   Cadastrar, editar e desativar salas e usuários já existem na parte interna do sistema, mas ainda não têm tela.
+*   As telas **Gerenciar Salas** e **Gerenciar Usuários** permitem cadastrar e editar salas e usuários, e desativar usuários. Ficam visíveis apenas para o perfil Admin.
 *   **Prioridade do Professor sobre o Aluno:** quando uma reserva de Professor conflita com reservas de Alunos, o Professor assume o horário e as reservas dos Alunos passam para **Cancelada**, na mesma operação em que a reserva do Professor é gravada.
     *   Em salas comuns e de reunião, isso acontece ao criar ou alterar a reserva.
     *   Em laboratórios e auditórios, a reserva do Professor entra como Pendente e as reservas dos Alunos continuam ativas até um Admin aprovar. Só na aprovação elas são canceladas.
