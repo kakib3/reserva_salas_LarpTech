@@ -65,6 +65,7 @@ def negar_reserva(id_reserva, id_solicitante):
 
     return True, "Reserva negada com sucesso.", None
 
+
 @tratar_erro_de_dados
 def consultar_proxima_reserva(id_usuario, data_atual):
     resultado = reservas_service.consultar_proxima_reserva(
@@ -94,6 +95,7 @@ def consultar_reservas_usuario(id_usuario):
     )
 
     return True, "", resultado
+
 
 @tratar_erro_de_dados
 def pode_gerenciar_pendencias(id_usuario):

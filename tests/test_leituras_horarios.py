@@ -2,7 +2,6 @@ from datetime import date, time, timedelta
 
 import pytest
 
-from app.models import dados
 from app.services import reservas_service, sala_service
 
 
@@ -251,32 +250,3 @@ def test_disponibilidade_de_sala_inexistente_devolve_none(monkeypatch):
 
     assert sala_service.consultar_disponibilidade(999, date(2026, 11, 17), 1) is None
     assert conexoes[0].fechada
-
-# models/dados.py
-
-def test_carregar_reservas_devolve_horarios_como_time(monkeypatch):
-    _fixar_banco(monkeypatch, dados, {"fetchall": [_linha_reserva()]})
-
-    resultado = dados.carregar_reservas()
-
-    assert resultado[0]["hora_inicio"] == time(19, 0)
-    assert resultado[0]["hora_fim"] == time(21, 0)
-
-
-def test_obter_reservas_da_sala_sem_data_devolve_horarios_como_time(monkeypatch):
-    conexoes = _fixar_banco(monkeypatch, dados, {"fetchall": [_linha_reserva()]})
-
-    resultado = dados.obter_reservas_da_sala(1)
-
-    assert resultado[0]["hora_inicio"] == time(19, 0)
-    assert resultado[0]["hora_fim"] == time(21, 0)
-    assert conexoes[0].cursor_falso.consultas[0][1] == (1,)
-
-
-def test_obter_reservas_da_sala_com_data_filtra_pela_data(monkeypatch):
-    conexoes = _fixar_banco(monkeypatch, dados, {"fetchall": [_linha_reserva()]})
-
-    resultado = dados.obter_reservas_da_sala(1, date(2026, 11, 17))
-
-    assert resultado[0]["hora_inicio"] == time(19, 0)
-    assert conexoes[0].cursor_falso.consultas[0][1] == (1, date(2026, 11, 17))

@@ -46,6 +46,8 @@ def criar_sala(nome, capacidade, predio, andar, status, tipo_sala, id_solicitant
 
     sala_obj.validar_nome()
     sala_obj.validar_capacidade()
+    sala_obj.validar_predio()
+    sala_obj.validar_andar()
     sala_obj.validar_status()
     sala_obj.validar_tipo_sala()
     
@@ -85,6 +87,8 @@ def alterar_sala(id_sala, nome, capacidade, predio, andar, tipo_sala, id_solicit
         sala_obj = Sala(id_sala, nome, capacidade, predio, andar, resultado["status_sala"], tipo_sala)
         sala_obj.validar_nome()
         sala_obj.validar_capacidade()
+        sala_obj.validar_predio()
+        sala_obj.validar_andar()
         sala_obj.validar_tipo_sala()
 
         valores = (nome, capacidade, predio, andar, tipo_sala, id_sala)

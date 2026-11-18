@@ -1,6 +1,7 @@
 import streamlit as st
 from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
+from app.utils import mensagens
 from app.utils.sessao import usuario_logado
 
 
@@ -8,6 +9,7 @@ def render():
     usuario = usuario_logado()
 
     st.title("LarpReserve")
+    mensagens.exibir()
     st.write(f"Bem-vindo, {usuario.nome}")
     st.write(hoje().strftime("%d/%m/%Y"))
 
@@ -90,11 +92,8 @@ def render():
                                     )
                                 )
 
-                                if sucesso:
-                                    st.success(mensagem)
-                                    st.rerun()
-                                else:
-                                    st.error(mensagem)
+                                mensagens.agendar_resultado(sucesso, mensagem)
+                                st.rerun()
 
                         with col_negar:
                             if st.button(
@@ -108,11 +107,8 @@ def render():
                                     )
                                 )
 
-                                if sucesso:
-                                    st.success(mensagem)
-                                    st.rerun()
-                                else:
-                                    st.error(mensagem)
+                                mensagens.agendar_resultado(sucesso, mensagem)
+                                st.rerun()
 
     # Salas disponíveis
     with col_disponiveis:

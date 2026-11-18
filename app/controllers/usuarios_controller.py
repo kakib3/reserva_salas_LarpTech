@@ -1,5 +1,16 @@
+from app.models.usuario import Usuario
 from app.services import usuarios_service
 from app.utils.excecoes import tratar_erro_de_dados
+
+
+def validar_dados_usuario(nome, email, telefone, role, senha=None):
+    """Valida os campos de um formulário e devolve TODOS os erros de uma vez.
+
+    Retorna (sem_erros, "", lista_de_erros). Passe `senha` apenas no cadastro.
+    """
+    usuario = Usuario(None, nome, email, telefone, role, senha)
+    erros = usuario.coletar_erros(incluir_senha=senha is not None)
+    return not erros, "", erros
 
 
 @tratar_erro_de_dados
@@ -91,26 +102,3 @@ def listar_todos_usuarios(id_solicitante):
         return False, str(e), None
 
     return True, "", usuarios
-
-
-@tratar_erro_de_dados
-def alterar_status_usuario(id_usuario, novo_status, id_solicitante):
-    try:
-        resultado = usuarios_service.alterar_status_usuario(
-            id_solicitante,
-            id_usuario,
-            novo_status
-        )
-    except (ValueError, PermissionError) as e:
-        return False, str(e), None
-
-    if resultado is False:
-        return False, "Usuário não encontrado ou já possui esse status.", None
-
-    mensagem = (
-        "Usuário ativado com sucesso."
-        if novo_status == "Ativo"
-        else "Usuário desativado com sucesso."
-    )
-
-    return True, mensagem, None

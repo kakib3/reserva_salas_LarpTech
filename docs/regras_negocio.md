@@ -40,7 +40,7 @@ As regras abaixo definem como o sistema deve se comportar nas reservas, nos stat
 
 ## 3. Regras de usuário
 
-1. O acesso ao sistema é feito por login, com e-mail e senha conferidos com o cadastro em `usuarios.csv`. Sem login, só a tela de Login fica disponível.
+1. O acesso ao sistema é feito por login, com e-mail e senha conferidos com o cadastro na tabela `usuarios` do banco. Sem login, só a tela de Login fica disponível.
 2. O usuário logado fica guardado na sessão e é usado em todas as operações.
 3. Apenas o próprio usuário pode alterar ou cancelar suas reservas.
 
@@ -61,4 +61,4 @@ As regras abaixo definem como o sistema deve se comportar nas reservas, nos stat
 
 1. Ao tentar criar uma reserva com conflito de horário, o sistema bloqueia a reserva e mostra uma mensagem de erro clara, exceto quando o Professor tem prioridade sobre os Alunos em conflito (seção 4).
 2. Ao cancelar uma reserva, o status muda para Cancelada. O registro não é apagado.
-3. Os dados devem ser consistentes entre os arquivos CSV, ou seja, os IDs usados em um arquivo precisam existir no arquivo de origem.
+3. Os dados devem ser consistentes entre as tabelas: `id_usuario` e `id_sala` de uma reserva precisam existir em `usuarios` e `salas` (chaves estrangeiras do banco).

@@ -124,7 +124,7 @@ def criar_usuario(nome, email, telefone, role, senha, id_solicitante=None):
         valores = (
             usuario_obj.nome,
             usuario_obj.email,
-            usuario_obj.telefone,
+            usuario_obj.telefone_normalizado,
             usuario_obj.role,
             gerar_hash_senha(usuario_obj.senha),
             usuario_obj.status
@@ -205,7 +205,7 @@ def alterar_usuario(id_solicitante, id_usuario, nome, email, telefone, role):
     if not verificar_email_disponivel(email, id_usuario_ignorar=id_usuario):
         return False  
            
-    valores = (nome, email, telefone, role, id_usuario)
+    valores = (nome, email, usuario_obj.telefone_normalizado, role, id_usuario)
 
     conexao = conectar_banco()
     cursor = None
@@ -362,57 +362,3 @@ def obter_usuario(id_solicitante, id_usuario):
 def checar_usuario_ativo(id_usuario):
     usuario = buscar_usuario_por_id(id_usuario)
     return usuario is not None and usuario.status != "Inativo"
-
-
-def alterar_status_usuario(id_solicitante, id_usuario, novo_status):
-    exigir_admin(id_solicitante)
-
-    if novo_status not in ("Ativo", "Inativo"):
-        raise ValueError("Status inválido.")
-
-    if id_solicitante == id_usuario:
-        raise ValueError("Administradores não podem alterar o status de si mesmos.")
-
-    conexao = conectar_banco()
-    cursor = None
-
-    try:
-        cursor = conexao.cursor(dictionary=True)
-
-        cursor.execute(
-            """
-            SELECT status_usuario
-            FROM usuarios
-            WHERE id_usuario = %s
-            """,
-            (id_usuario,)
-        )
-
-        usuario = cursor.fetchone()
-
-        if not usuario:
-            return False
-
-        if usuario["status_usuario"] == novo_status:
-            return False
-
-        cursor.execute(
-            """
-            UPDATE usuarios
-            SET status_usuario = %s
-            WHERE id_usuario = %s
-            """,
-            (novo_status, id_usuario)
-        )
-
-        conexao.commit()
-        return True
-
-    except Exception:
-        conexao.rollback()
-        raise
-
-    finally:
-        if cursor is not None:
-            cursor.close()
-        conexao.close()

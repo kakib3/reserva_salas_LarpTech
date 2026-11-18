@@ -192,7 +192,7 @@ class TestSalaService(unittest.TestCase):
 
         resultado = sala_service.alterar_sala(
             ID_SALA,
-            "Sala Atualizada",
+            "Sala 03",
             40,
             "Bloco B",
             2,
@@ -210,7 +210,7 @@ class TestSalaService(unittest.TestCase):
 
         resultado = sala_service.alterar_sala(
             999,
-            "Sala Atualizada",
+            "Sala 03",
             40,
             "Bloco B",
             2,
@@ -232,7 +232,7 @@ class TestSalaService(unittest.TestCase):
         with self.assertRaises(ValueError):
             sala_service.alterar_sala(
                 ID_SALA,
-                "Sala Atualizada",
+                "Sala 03",
                 -1,
                 "Bloco B",
                 2,

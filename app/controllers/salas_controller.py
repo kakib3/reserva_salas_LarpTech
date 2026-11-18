@@ -74,9 +74,10 @@ def obter_sala(id_sala):
     return True, "", sala
 
 
-# Mantém o retorno direto da Service, como já era esperado pelas chamadas existentes.
+@tratar_erro_de_dados
 def listar_todas_salas():
-    return sala_service.listar_salas()
+    return True, "", sala_service.listar_salas()
+
 
 @tratar_erro_de_dados
 def consultar_salas(id_usuario, somente_disponiveis=False, capacidade_minima=0, predio=None):
@@ -124,7 +125,7 @@ def consultar_salas_disponiveis(limite=5):
 
 
 @tratar_erro_de_dados
-def consultar_disponibilidade(id_sala, data_consulta, id_usuario = None):
+def consultar_disponibilidade(id_sala, data_consulta, id_usuario=None):
     resultado = sala_service.consultar_disponibilidade(
         id_sala,
         data_consulta,
@@ -133,13 +134,5 @@ def consultar_disponibilidade(id_sala, data_consulta, id_usuario = None):
 
     if resultado is None:
         return False, "Sala não encontrada.", None
-
-    return True, "", resultado
-
-@tratar_erro_de_dados
-def pode_gerenciar_pendencias(id_usuario):
-    resultado = reservas_service.pode_gerenciar_pendencias(
-        id_usuario
-    )
 
     return True, "", resultado
