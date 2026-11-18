@@ -4,7 +4,7 @@ As operações de escrita dos Services seguem uma convenção única:
 
 - **Dados inválidos:** lançar `ValueError` com mensagem que explique a validação.
 - **Regra de estado impede a operação:** retornar exatamente `False`. Exemplos: registro inexistente, estado incompatível, conflito ou duplicidade.
-- **Sucesso:** retornar a entidade de domínio criada ou atualizada (`Reserva`, `Sala` ou `Usuario`), nunca apenas `True`.
+- **Sucesso:** retornar a entidade de domínio criada ou atualizada (`Reserva`, `Sala` ou `Usuario`), quando a View/Controller precisa dos dados; operações que não precisam devolver a entidade retornam `True`.
 
 ## Exceções específicas
 
