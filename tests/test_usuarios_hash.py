@@ -1,5 +1,5 @@
 """Testes do hash de senha nos services de usuário, com um banco falso em memória
-(não dependem do MySQL nem dos CSVs)."""
+(não dependem do MySQL)."""
 import pytest
 
 from app.services import usuarios_service

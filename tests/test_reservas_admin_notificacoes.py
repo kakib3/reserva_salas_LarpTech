@@ -2,7 +2,7 @@
 from datetime import date, time
 import pytest
 
-from app.models.constantes import StatusReserva
+from app.models.constantes import PapelUsuario, StatusReserva
 from app.services import reservas_service
 
 
@@ -80,10 +80,15 @@ def test_aprovar_reserva_notifica_usuario(monkeypatch):
         lambda id_sala: True
     )
     monkeypatch.setattr(
-    reservas_service,
-    "obter_conflitos_horario",
-    lambda *args, **kwargs: []
-)
+        reservas_service,
+        "obter_conflitos_horario",
+        lambda *args, **kwargs: []
+    )
+    monkeypatch.setattr(
+        reservas_service,
+        "_papel_do_usuario",
+        lambda id_usuario: PapelUsuario.ALUNO
+    )
 
     chamadas = []
 
@@ -181,6 +186,11 @@ def test_decisao_admin_nao_depende_do_envio_email(
         reservas_service,
         "obter_conflitos_horario",
         lambda *args, **kwargs: []
+    )
+    monkeypatch.setattr(
+        reservas_service,
+        "_papel_do_usuario",
+        lambda id_usuario: PapelUsuario.ALUNO
     )
     monkeypatch.setattr(
         reservas_service,

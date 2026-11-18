@@ -1,11 +1,13 @@
 import streamlit as st
 from app.controllers import salas_controller
+from app.utils import mensagens
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
 
 
 def render():
     st.title("Salas")
+    mensagens.exibir()
 
     usuario = usuario_logado()
 
@@ -102,10 +104,8 @@ def render():
                                 )
                             )
 
-                            if sucesso:
-                                st.rerun()
-                            else:
-                                st.error(mensagem)
+                            mensagens.agendar_resultado(sucesso, mensagem)
+                            st.rerun()
 
                     else:
                         if st.button(
@@ -119,7 +119,5 @@ def render():
                                 )
                             )
 
-                            if sucesso:
-                                st.rerun()
-                            else:
-                                st.error(mensagem)
+                            mensagens.agendar_resultado(sucesso, mensagem)
+                            st.rerun()

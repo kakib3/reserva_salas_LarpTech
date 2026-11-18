@@ -1,5 +1,4 @@
 streamlit
-pandas
 mysql-connector-python
 bcrypt
 tzdata

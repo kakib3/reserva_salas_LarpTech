@@ -1,10 +1,12 @@
 import streamlit as st
 from app.controllers import reservas_controller
+from app.utils import mensagens
 from app.utils.sessao import usuario_logado
 
 
 def render():
     st.title("Minhas Reservas")
+    mensagens.exibir()
 
     usuario = usuario_logado()
 
@@ -47,11 +49,8 @@ def render():
                             )
                         )
 
-                        if sucesso:
-                            st.success(mensagem)
-                            st.rerun()
-                        else:
-                            st.error(mensagem)
+                        mensagens.agendar_resultado(sucesso, mensagem)
+                        st.rerun()
 
                 with col_alterar:
                     with st.popover("Alterar"):
@@ -90,7 +89,7 @@ def render():
                             )
 
                             if sucesso:
-                                st.success(mensagem)
+                                mensagens.agendar("sucesso", mensagem)
                                 st.rerun()
                             else:
                                 st.error(mensagem)

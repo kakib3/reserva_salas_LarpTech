@@ -4,6 +4,12 @@ import pytest
 from app.services import usuarios_service
 from app.utils.seguranca import gerar_hash_senha, verificar_senha
 
+# bcrypt é lento de propósito: cada hash é calculado uma única vez para a suíte inteira.
+HASHES = {
+    senha: gerar_hash_senha(senha)
+    for senha in ("Admin@123", "Aluno@123", "Prof@123")
+}
+
 
 # ============================================================
 # BANCO DE DADOS SIMULADO
@@ -18,7 +24,7 @@ class BancoFake:
                 "email": "admin@email.com",
                 "telefone": "69999999999",
                 "papel": "Admin",
-                "senha": gerar_hash_senha("Admin@123"),
+                "senha": HASHES["Admin@123"],
                 "status_usuario": "Ativo",
             },
             {
@@ -27,7 +33,7 @@ class BancoFake:
                 "email": "aluno@email.com",
                 "telefone": "69988888888",
                 "papel": "Aluno",
-                "senha": gerar_hash_senha("Aluno@123"),
+                "senha": HASHES["Aluno@123"],
                 "status_usuario": "Ativo",
             },
             {
@@ -36,7 +42,7 @@ class BancoFake:
                 "email": "prof@email.com",
                 "telefone": "69977777777",
                 "papel": "Professor",
-                "senha": gerar_hash_senha("Prof@123"),
+                "senha": HASHES["Prof@123"],
                 "status_usuario": "Ativo",
             },
         ]
@@ -526,7 +532,6 @@ def test_usuario_altera_propria_senha(banco):
 
 
 def test_senha_atual_incorreta_nao_altera_senha(banco):
-    senha_anterior = banco.usuarios[1]["senha"]
     resultado = usuarios_service.alterar_senha(
         2,
         2,
@@ -535,7 +540,7 @@ def test_senha_atual_incorreta_nao_altera_senha(banco):
     )
 
     assert resultado is False
-    assert banco.usuarios[1]["senha"] == senha_anterior
+    assert banco.usuarios[1]["senha"] == HASHES["Aluno@123"]  # continua igual
 
 
 def test_usuario_nao_altera_senha_de_outro(banco):
@@ -693,3 +698,13 @@ def test_consultar_usuario_inexistente(banco):
     usuario = usuarios_service.obter_usuario(1, 999)
 
     assert usuario is None
+
+
+def test_telefone_formatado_e_gravado_so_com_digitos(banco):
+    resultado = usuarios_service.criar_usuario(
+        "Maria Souza", "maria@email.com", "(69) 99999-0000", "Aluno", "Senha123"
+    )
+
+    assert resultado is not False
+    assert banco.usuarios[-1]["telefone"] == "69999990000"
+

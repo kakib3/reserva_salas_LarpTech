@@ -2,7 +2,8 @@ from datetime import date, time
 
 import pytest
 
-from app.models.constantes import StatusReserva
+from datas import SEGUNDA_FUTURA
+from app.models.constantes import PapelUsuario, StatusReserva
 from app.services import reservas_service
 
 
@@ -51,9 +52,19 @@ def preparar_criacao(monkeypatch):
         lambda id_sala: True
     )
     monkeypatch.setattr(
+        reservas_service.salas_ocultas,
+        "esta_oculta",
+        lambda id_sala: False
+    )
+    monkeypatch.setattr(
         reservas_service,
-        "verificar_conflito_horario",
-        lambda *args, **kwargs: False
+        "obter_conflitos_horario",
+        lambda *args, **kwargs: []
+    )
+    monkeypatch.setattr(
+        reservas_service,
+        "_papel_do_usuario",
+        lambda id_usuario: PapelUsuario.ALUNO
     )
     monkeypatch.setattr(
         reservas_service,
@@ -121,7 +132,7 @@ def test_criar_reserva_dispara_notificacao(
     resultado = reservas_service.criar_reserva(
         id_usuario=10,
         id_sala=5,
-        data=date(2028, 11, 20),
+        data=SEGUNDA_FUTURA,
         hora_inicio=time(14, 0),
         hora_fim=time(16, 0)
     )
@@ -154,7 +165,7 @@ def test_falha_na_notificacao_nao_impede_criar_reserva(
     resultado = reservas_service.criar_reserva(
         id_usuario=10,
         id_sala=5,
-        data=date(2028, 11, 20),
+        data=SEGUNDA_FUTURA,
         hora_inicio=time(14, 0),
         hora_fim=time(16, 0)
     )

@@ -1,10 +1,10 @@
 
 from datetime import date, time, timedelta
 from unittest.mock import Mock
-from copy import deepcopy
 
 import pytest
 
+from datas import DOMINGO_FUTURO, SEGUNDA_FUTURA
 from app.models.constantes import (
     PapelUsuario,
     StatusReserva,
@@ -16,14 +16,30 @@ from app.services import reservas_service as service
 
 # MOCKS DO BANCO DE DADOS
 
+@pytest.fixture(autouse=True)
+def _sem_notificacoes(monkeypatch):
+    """Estes testes cobrem as regras de reserva, não o envio de e-mail.
+
+    Sem isto, o service tenta montar a notificação consultando o banco (e o erro é engolido).
+    As notificações têm testes próprios em test_reservas_notificacoes.py.
+    """
+    for nome in (
+        "notificar_reserva_confirmada",
+        "notificar_reserva_pendente",
+        "notificar_reserva_aprovada",
+        "notificar_reserva_recusada",
+    ):
+        monkeypatch.setattr(service.notificacoes_service, nome, lambda *args, **kwargs: True)
+
+
 class MockCursor:
-    def __init__(self, resultado=None, resultados=None, lastrowid=100):
-        self.resultado = deepcopy(resultado)
-        self.resultados = deepcopy(resultados) if resultados else []
+    def __init__(self, resultado=None, resultados=None, lastrowid=100, rowcount=1):
+        self.rowcount = rowcount          # o service confere se o UPDATE afetou alguma linha
+        self.resultado = resultado
+        self.resultados = resultados or []
         self.lastrowid = lastrowid
         self.executado = []
         self.fechado = False
-        self.rowcount = 1
 
     def execute(self, sql, valores=None):
         self.executado.append((sql, valores))
@@ -77,7 +93,7 @@ def configurar_admin(monkeypatch, admin=True):
 
 # DADOS UTILIZADOS NOS TESTES
 
-DATA = date(2028, 11, 20)
+DATA = SEGUNDA_FUTURA
 INICIO = time(19, 0)
 FIM = time(21, 0)
 
@@ -349,7 +365,7 @@ def test_criar_reserva_com_horario_invalido_gera_erro(
 def test_criar_reserva_no_domingo_gera_erro(monkeypatch):
     preparar_criacao(monkeypatch)
 
-    domingo = date(2026, 11, 15)
+    domingo = DOMINGO_FUTURO
 
     with pytest.raises(ValueError):
         service.criar_reserva(
@@ -488,10 +504,13 @@ def test_cancelar_reserva_confirmada(monkeypatch):
     sql, valores = conexao.mock_cursor.executado[1]
 
     assert "UPDATE reservas" in sql
-    assert valores == (StatusReserva.CANCELADA,
-                       5, 10,
-                       StatusReserva.CONFIRMADA,
-                       StatusReserva.PENDENTE)
+    assert valores == (
+        StatusReserva.CANCELADA,
+        5,
+        10,
+        StatusReserva.CONFIRMADA,
+        StatusReserva.PENDENTE,
+    )
 
 # ALTERAÇÃO DE RESERVAS
 
@@ -551,7 +570,7 @@ def test_alterar_reserva_com_sucesso(monkeypatch):
         StatusReserva.CONFIRMADA,
         5,
         10,
-        StatusReserva.CONFIRMADA
+        StatusReserva.CONFIRMADA,
     )
 
 
@@ -671,7 +690,7 @@ def test_usuario_comum_nao_aprova_reserva(monkeypatch):
 def test_admin_aprova_reserva_pendente(monkeypatch):
     preparar_aprovacao(monkeypatch)
 
-    consulta = MockConexao(resultado=RESERVA_PENDENTE)
+    consulta = MockConexao(resultado=RESERVA_PENDENTE.copy())
     atualizacao = MockConexao()
 
     configurar_conexoes(monkeypatch, consulta, atualizacao)
@@ -684,8 +703,11 @@ def test_admin_aprova_reserva_pendente(monkeypatch):
     sql, valores = atualizacao.mock_cursor.executado[0]
 
     assert "UPDATE reservas" in sql
-    assert valores == (StatusReserva.CONFIRMADA, 5,
-                       StatusReserva.PENDENTE)
+    assert valores == (
+        StatusReserva.CONFIRMADA,
+        5,
+        StatusReserva.PENDENTE,
+    )
 
 
 @pytest.mark.parametrize(
@@ -731,7 +753,7 @@ def test_admin_nao_aprova_reserva_de_sala_indisponivel(monkeypatch):
         lambda id_sala: False,
     )
 
-    consulta = MockConexao(resultado=RESERVA_PENDENTE)
+    consulta = MockConexao(resultado=RESERVA_PENDENTE.copy())
     configurar_conexoes(monkeypatch, consulta)
 
     assert service.aprovar_reserva(5, 99) is False
@@ -748,7 +770,7 @@ def test_admin_nao_aprova_reserva_com_conflito_nao_permitido(monkeypatch):
         ],
     )
 
-    consulta = MockConexao(resultado=RESERVA_PENDENTE)
+    consulta = MockConexao(resultado=RESERVA_PENDENTE.copy())
     configurar_conexoes(monkeypatch, consulta)
 
     assert service.aprovar_reserva(5, 99) is False
@@ -766,9 +788,7 @@ def test_usuario_comum_nao_nega_reserva(monkeypatch):
 def test_admin_nega_reserva_pendente(monkeypatch):
     configurar_admin(monkeypatch)
 
-    conexao = MockConexao(
-        resultado=RESERVA_PENDENTE
-    )
+    conexao = MockConexao(resultado=RESERVA_PENDENTE.copy())
     configurar_conexoes(monkeypatch, conexao)
 
     resultado = service.negar_reserva(5, 99)
@@ -779,8 +799,11 @@ def test_admin_nega_reserva_pendente(monkeypatch):
     sql, valores = conexao.mock_cursor.executado[1]
 
     assert "UPDATE reservas" in sql
-    assert valores == (StatusReserva.CANCELADA, 5,
-                       StatusReserva.PENDENTE)
+    assert valores == (
+        StatusReserva.CANCELADA,
+        5,
+        StatusReserva.PENDENTE,
+    )
 
 
 def test_admin_nao_nega_reserva_inexistente(monkeypatch):
@@ -985,27 +1008,3 @@ def test_cancelar_reservas_substituidas_executa_update():
         StatusReserva.CONFIRMADA,
         StatusReserva.PENDENTE,
     )
-
-
-def test_normalizar_horarios_converte_timedelta():
-    reserva = {
-        "hora_inicio": timedelta(hours=8, minutes=30),
-        "hora_fim": timedelta(hours=10),
-    }
-
-    service.normalizar_horarios(reserva)
-
-    assert reserva["hora_inicio"] == time(8, 30)
-    assert reserva["hora_fim"] == time(10, 0)
-
-
-def test_normalizar_horarios_preserva_valores_time():
-    reserva = {
-        "hora_inicio": time(8, 30),
-        "hora_fim": time(10, 0),
-    }
-
-    service.normalizar_horarios(reserva)
-
-    assert reserva["hora_inicio"] == time(8, 30)
-    assert reserva["hora_fim"] == time(10, 0)

@@ -2,16 +2,18 @@ import streamlit as st
 from app.controllers import salas_controller
 from app.models.sala import Sala
 from app.models.constantes import StatusSala
+from app.utils import mensagens
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
 
 
 def render():
     st.title("Gerenciar Salas")
+    mensagens.exibir()
 
     usuario = usuario_logado()
 
-    if usuario is None or usuario.role != "Admin":
+    if usuario is None or not usuario.eh_admin:
         st.warning("Apenas administradores podem gerenciar salas.")
         return
 
@@ -45,22 +47,19 @@ def _formulario_cadastro(usuario):
         enviado = st.form_submit_button("Cadastrar sala", type="primary")
 
     if enviado:
-        if not predio.strip() or not andar.strip():
-            st.error("Informe o prédio e o andar da sala.")
-            return
-
         sucesso, mensagem, _ = salas_controller.cadastrar_sala(
             nome.strip(), int(capacidade), predio.strip(), andar.strip(),
             status, tipo_sala, usuario.id,
         )
-        if sucesso:
-            st.success(mensagem)
-        else:
-            st.error(mensagem)
+        _finalizar(sucesso, mensagem)
 
 
 def _formulario_edicao(usuario):
-    salas = salas_controller.listar_todas_salas()
+    sucesso, mensagem, salas = salas_controller.listar_todas_salas()
+
+    if not sucesso:
+        st.error(mensagem)
+        return
 
     if not salas:
         st.info("Nenhuma sala cadastrada ainda.")
@@ -91,17 +90,11 @@ def _formulario_edicao(usuario):
         salvar = st.form_submit_button("Salvar alterações", type="primary")
 
     if salvar:
-        if not predio.strip() or not andar.strip():
-            st.error("Informe o prédio e o andar da sala.")
-        else:
-            sucesso, mensagem, _ = salas_controller.editar_sala(
-                id_sala, nome.strip(), int(capacidade), predio.strip(), andar.strip(),
-                tipo_sala, usuario.id,
-            )
-            if sucesso:
-                st.success(mensagem)
-            else:
-                st.error(mensagem)
+        sucesso, mensagem, _ = salas_controller.editar_sala(
+            id_sala, nome.strip(), int(capacidade), predio.strip(), andar.strip(),
+            tipo_sala, usuario.id,
+        )
+        _finalizar(sucesso, mensagem)
 
     st.subheader("Status da sala")
     st.write(f"Status atual: **{sala['status_sala']}**")
@@ -118,7 +111,13 @@ def _formulario_edicao(usuario):
         sucesso, mensagem, _ = salas_controller.mudar_status_sala(
             id_sala, novo_status, usuario.id
         )
-        if sucesso:
-            st.success(mensagem)
-        else:
-            st.error(mensagem)
+        _finalizar(sucesso, mensagem)
+
+
+def _finalizar(sucesso, mensagem):
+    """Sucesso: agenda a mensagem e recarrega (a lista de salas aparece atualizada)."""
+    if sucesso:
+        mensagens.agendar("sucesso", mensagem)
+        st.rerun()
+    else:
+        st.error(mensagem)

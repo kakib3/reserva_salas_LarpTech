@@ -58,7 +58,23 @@ Quando o ambiente estiver ativado, normalmente aparecerá `(.venv)` no início d
 python -m pip install -r requirements.txt
 ```
 
-### 6. Execute a aplicação
+### 6. Configure o banco de dados
+
+Crie o arquivo `.streamlit/secrets.toml` (ele não é versionado) com as credenciais do MySQL:
+
+```toml
+[mysql]
+host = "SEU_HOST"
+port = 3306
+database = "NOME_DO_BANCO"
+user = "SEU_USUARIO"
+password = "SUA_SENHA"
+ssl_ca = "ca.pem"
+```
+
+Coloque o certificado `ca.pem` na raiz do projeto.
+
+### 7. Execute a aplicação
 
 ```bash
 python -m streamlit run main.py
@@ -82,8 +98,8 @@ reserva_salas_LarpTech/
 │   ├── services/
 │   └── utils/
 │
-│── tests/
-├── data/
+├── tests/
+│   └── integration/
 ├── docs/
 ├── assets/
 │
@@ -96,10 +112,21 @@ O projeto utiliza uma organização baseada na arquitetura **MVC (Model-View-Con
 
 - **Views:** interface e renderização das páginas com Streamlit.
 - **Controllers:** intermediam as ações entre as Views e os Models.
-- **Models:** representam as entidades, regras de negócio e acesso aos dados.
-- **Data:** arquivos CSV utilizados como dados simulados.
-- **Services:** concentra as regras de negócio e validações.
+- **Models:** representam as entidades e suas validações (inclusive os limites das colunas do banco) e a conexão com o MySQL.
+- **Services:** concentram as regras de negócio, as consultas e as gravações no banco.
 - **main.py:** ponto de entrada e responsável pela navegação da aplicação.
+
+## Testes
+
+```bash
+python -m pytest                       # tudo (os de integração são pulados sem banco de teste)
+python -m pytest -m "not integration"  # só os unitários, que não precisam de banco
+python -m pytest -m integration        # só os de integração (veja tests/integration/README.md)
+```
+
+Os testes unitários usam mocks e **não podem** acessar o banco real: um bloqueio em `tests/conftest.py`
+faz o teste falhar se isso acontecer. Datas dos testes são sempre calculadas a partir do relógio do app
+(`tests/datas.py`), nunca fixas.
 
 ## Encerrando a aplicação
 

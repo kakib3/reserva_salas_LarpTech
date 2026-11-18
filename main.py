@@ -70,7 +70,7 @@ else:
         pagina_minhas_reservas,
     ]
 
-    if usuario.role == "Admin":
+    if usuario.eh_admin:
         pagina_gerenciar_salas = st.Page(gerenciar_salas_page, title="Gerenciar Salas", icon="🛠️")
         pages.append(pagina_gerenciar_salas)
         pagina_gerenciar_usuarios = st.Page(gerenciar_usuarios_page, title="Gerenciar Usuários", icon="👥")

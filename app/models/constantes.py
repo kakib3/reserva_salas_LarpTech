@@ -10,6 +10,11 @@ class PapelUsuario:
     PROFESSOR = "Professor"
     ADMIN = "Admin"
 
+class StatusUsuario:
+    ATIVO = "Ativo"
+    INATIVO = "Inativo"
+
+
 class StatusSala:
     DISPONIVEL = "Disponivel"
     MANUTENCAO = "Manutencao"

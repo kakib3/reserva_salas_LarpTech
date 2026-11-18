@@ -96,8 +96,8 @@ def test_cancelar_executa_um_update_apenas_nas_reservas_ativas():
 
     assert len(cursor.chamadas) == 1
     sql, valores = cursor.chamadas[0]
-    sql_normalizado = " ".join(sql.split())
-    assert "UPDATE reservas SET status_reserva" in sql_normalizado
+    sql = " ".join(sql.split())  # o SQL é multilinha: compara sem depender da formatação
+    assert "UPDATE reservas SET status_reserva" in sql
     assert "IN (%s, %s)" in sql
     assert valores == (
         StatusReserva.CANCELADA, 10, 11,

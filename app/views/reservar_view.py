@@ -2,10 +2,8 @@ import streamlit as st
 
 from app.utils.relogio import hoje
 from app.controllers import reservas_controller, salas_controller
-from app.models.constantes import StatusReserva
 from app.utils.sessao import usuario_logado
 from app.utils.formatacao import formatar_nome_sala
-from app.utils.relogio import hoje
 from app.utils.horarios import horarios_padrao
 
 def render():
@@ -90,7 +88,7 @@ def render():
             )
         )
 
-        if sucesso and reserva.status == StatusReserva.PENDENTE:
+        if sucesso and reserva.esta_pendente:
             st.info(mensagem)
 
         elif sucesso:
