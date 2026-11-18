@@ -96,12 +96,14 @@ reserva_salas_LarpTech/
 │   ├── controllers/
 │   ├── models/
 │   ├── services/
+|   ├── messaging/
 │   └── utils/
 │
 ├── tests/
 │   └── integration/
 ├── docs/
 ├── assets/
+├── migrar_senhas.py
 │
 ├── main.py
 ├── requirements.txt
@@ -114,8 +116,10 @@ O projeto utiliza uma organização baseada na arquitetura **MVC (Model-View-Con
 - **Controllers:** intermediam as ações entre as Views e os Models.
 - **Models:** representam as entidades e suas validações (inclusive os limites das colunas do banco) e a conexão com o MySQL.
 - **Services:** concentram as regras de negócio, as consultas e as gravações no banco.
+- **Messaging:** notificações do sistema.
 - **main.py:** ponto de entrada e responsável pela navegação da aplicação.
 
+- migrar_senhas.py: um script utilitário/one-off de migração de senhas em texto para hash.
 ## Testes
 
 ```bash
